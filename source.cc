@@ -1,6 +1,6 @@
 #include <string.h>
 #include <omnetpp.h>
-
+#include "packet_m.h";
 using namespace omnetpp;
 
 
@@ -12,7 +12,7 @@ class source : public cSimpleModule
   protected:
     virtual void initialize() override;
     virtual void handleMessage(cMessage *msg) override;
-
+    virtual pck *buildPacket();
 
   private:
     cMessage *msgEvent;
@@ -44,12 +44,18 @@ void source::handleMessage(cMessage *msg)
 
     EV << "MD: Event received, sending packet\n";
     cancelAndDelete(msgEvent);
-    msgEvent = new cMessage("MD: Sending Packet");
-    // generate & send packet
-    cMessage *pkt = new cMessage;
-    //send(pkt, "out");
-    // schedule next call
+    msgEvent = new cMessage("MD: Sending Packet from source");
+
     scheduleAt(simTime()+exponential(1.0), msgEvent);
+    pck *buildedPck = buildPacket();
+    send(buildedPck, "out");
+
+}
+
+pck *source::buildPacket(){
+    pck *buildedPck = new pck(0,0);
+    buildedPck -> setBitLength(1024);
+    return buildedPck;
 }
 
 
