@@ -1,9 +1,9 @@
 //
-// Generated file, do not edit! Created by nedtool 5.6 from packet.msg.
+// Generated file, do not edit! Created by nedtool 5.6 from paquete.msg.
 //
 
-#ifndef __PACKET_M_H
-#define __PACKET_M_H
+#ifndef __PAQUETE_M_H
+#define __PAQUETE_M_H
 
 #if defined(__clang__)
 #  pragma clang diagnostic ignored "-Wreserved-id-macro"
@@ -19,34 +19,34 @@
 
 
 /**
- * Class generated from <tt>packet.msg:2</tt> by nedtool.
+ * Class generated from <tt>paquete.msg:2</tt> by nedtool.
  * <pre>
- * packet pck
+ * packet paquete
  * {
  *     unsigned int seq;
  *     unsigned short type;
  * }
  * </pre>
  */
-class pck : public ::omnetpp::cPacket
+class paquete : public ::omnetpp::cPacket
 {
   protected:
     unsigned int seq;
     unsigned short type;
 
   private:
-    void copy(const pck& other);
+    void copy(const paquete& other);
 
   protected:
     // protected and unimplemented operator==(), to prevent accidental usage
-    bool operator==(const pck&);
+    bool operator==(const paquete&);
 
   public:
-    pck(const char *name=nullptr, short kind=0);
-    pck(const pck& other);
-    virtual ~pck();
-    pck& operator=(const pck& other);
-    virtual pck *dup() const override {return new pck(*this);}
+    paquete(const char *name=nullptr, short kind=0);
+    paquete(const paquete& other);
+    virtual ~paquete();
+    paquete& operator=(const paquete& other);
+    virtual paquete *dup() const override {return new paquete(*this);}
     virtual void parsimPack(omnetpp::cCommBuffer *b) const override;
     virtual void parsimUnpack(omnetpp::cCommBuffer *b) override;
 
@@ -57,9 +57,9 @@ class pck : public ::omnetpp::cPacket
     virtual void setType(unsigned short type);
 };
 
-inline void doParsimPacking(omnetpp::cCommBuffer *b, const pck& obj) {obj.parsimPack(b);}
-inline void doParsimUnpacking(omnetpp::cCommBuffer *b, pck& obj) {obj.parsimUnpack(b);}
+inline void doParsimPacking(omnetpp::cCommBuffer *b, const paquete& obj) {obj.parsimPack(b);}
+inline void doParsimUnpacking(omnetpp::cCommBuffer *b, paquete& obj) {obj.parsimUnpack(b);}
 
 
-#endif // ifndef __PACKET_M_H
+#endif // ifndef __PAQUETE_M_H
 

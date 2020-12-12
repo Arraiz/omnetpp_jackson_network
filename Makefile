@@ -30,11 +30,11 @@ PROJECTRELATIVE_PATH =
 O = $(PROJECT_OUTPUT_DIR)/$(CONFIGNAME)/$(PROJECTRELATIVE_PATH)
 
 # Object files for local .cc, .msg and .sm files
-OBJS = $O/node.o $O/source.o $O/packet_m.o
+OBJS = $O/node.o $O/node_ext.o $O/source.o $O/paquete_m.o
 
 # Message files
 MSGFILES = \
-    packet.msg
+    paquete.msg
 
 # SM files
 SMFILES =

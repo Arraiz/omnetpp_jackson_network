@@ -1,5 +1,5 @@
 //
-// Generated file, do not edit! Created by nedtool 5.6 from packet.msg.
+// Generated file, do not edit! Created by nedtool 5.6 from paquete.msg.
 //
 
 // Disable warnings about unused variables, empty switch stmts, etc:
@@ -26,7 +26,7 @@
 
 #include <iostream>
 #include <sstream>
-#include "packet_m.h"
+#include "paquete_m.h"
 
 namespace omnetpp {
 
@@ -177,24 +177,24 @@ inline std::ostream& operator<<(std::ostream& out, const std::vector<T,A>& vec)
     return out;
 }
 
-Register_Class(pck)
+Register_Class(paquete)
 
-pck::pck(const char *name, short kind) : ::omnetpp::cPacket(name,kind)
+paquete::paquete(const char *name, short kind) : ::omnetpp::cPacket(name,kind)
 {
     this->seq = 0;
     this->type = 0;
 }
 
-pck::pck(const pck& other) : ::omnetpp::cPacket(other)
+paquete::paquete(const paquete& other) : ::omnetpp::cPacket(other)
 {
     copy(other);
 }
 
-pck::~pck()
+paquete::~paquete()
 {
 }
 
-pck& pck::operator=(const pck& other)
+paquete& paquete::operator=(const paquete& other)
 {
     if (this==&other) return *this;
     ::omnetpp::cPacket::operator=(other);
@@ -202,53 +202,53 @@ pck& pck::operator=(const pck& other)
     return *this;
 }
 
-void pck::copy(const pck& other)
+void paquete::copy(const paquete& other)
 {
     this->seq = other.seq;
     this->type = other.type;
 }
 
-void pck::parsimPack(omnetpp::cCommBuffer *b) const
+void paquete::parsimPack(omnetpp::cCommBuffer *b) const
 {
     ::omnetpp::cPacket::parsimPack(b);
     doParsimPacking(b,this->seq);
     doParsimPacking(b,this->type);
 }
 
-void pck::parsimUnpack(omnetpp::cCommBuffer *b)
+void paquete::parsimUnpack(omnetpp::cCommBuffer *b)
 {
     ::omnetpp::cPacket::parsimUnpack(b);
     doParsimUnpacking(b,this->seq);
     doParsimUnpacking(b,this->type);
 }
 
-unsigned int pck::getSeq() const
+unsigned int paquete::getSeq() const
 {
     return this->seq;
 }
 
-void pck::setSeq(unsigned int seq)
+void paquete::setSeq(unsigned int seq)
 {
     this->seq = seq;
 }
 
-unsigned short pck::getType() const
+unsigned short paquete::getType() const
 {
     return this->type;
 }
 
-void pck::setType(unsigned short type)
+void paquete::setType(unsigned short type)
 {
     this->type = type;
 }
 
-class pckDescriptor : public omnetpp::cClassDescriptor
+class paqueteDescriptor : public omnetpp::cClassDescriptor
 {
   private:
     mutable const char **propertynames;
   public:
-    pckDescriptor();
-    virtual ~pckDescriptor();
+    paqueteDescriptor();
+    virtual ~paqueteDescriptor();
 
     virtual bool doesSupport(omnetpp::cObject *obj) const override;
     virtual const char **getPropertyNames() const override;
@@ -270,24 +270,24 @@ class pckDescriptor : public omnetpp::cClassDescriptor
     virtual void *getFieldStructValuePointer(void *object, int field, int i) const override;
 };
 
-Register_ClassDescriptor(pckDescriptor)
+Register_ClassDescriptor(paqueteDescriptor)
 
-pckDescriptor::pckDescriptor() : omnetpp::cClassDescriptor("pck", "omnetpp::cPacket")
+paqueteDescriptor::paqueteDescriptor() : omnetpp::cClassDescriptor("paquete", "omnetpp::cPacket")
 {
     propertynames = nullptr;
 }
 
-pckDescriptor::~pckDescriptor()
+paqueteDescriptor::~paqueteDescriptor()
 {
     delete[] propertynames;
 }
 
-bool pckDescriptor::doesSupport(omnetpp::cObject *obj) const
+bool paqueteDescriptor::doesSupport(omnetpp::cObject *obj) const
 {
-    return dynamic_cast<pck *>(obj)!=nullptr;
+    return dynamic_cast<paquete *>(obj)!=nullptr;
 }
 
-const char **pckDescriptor::getPropertyNames() const
+const char **paqueteDescriptor::getPropertyNames() const
 {
     if (!propertynames) {
         static const char *names[] = {  nullptr };
@@ -298,19 +298,19 @@ const char **pckDescriptor::getPropertyNames() const
     return propertynames;
 }
 
-const char *pckDescriptor::getProperty(const char *propertyname) const
+const char *paqueteDescriptor::getProperty(const char *propertyname) const
 {
     omnetpp::cClassDescriptor *basedesc = getBaseClassDescriptor();
     return basedesc ? basedesc->getProperty(propertyname) : nullptr;
 }
 
-int pckDescriptor::getFieldCount() const
+int paqueteDescriptor::getFieldCount() const
 {
     omnetpp::cClassDescriptor *basedesc = getBaseClassDescriptor();
     return basedesc ? 2+basedesc->getFieldCount() : 2;
 }
 
-unsigned int pckDescriptor::getFieldTypeFlags(int field) const
+unsigned int paqueteDescriptor::getFieldTypeFlags(int field) const
 {
     omnetpp::cClassDescriptor *basedesc = getBaseClassDescriptor();
     if (basedesc) {
@@ -325,7 +325,7 @@ unsigned int pckDescriptor::getFieldTypeFlags(int field) const
     return (field>=0 && field<2) ? fieldTypeFlags[field] : 0;
 }
 
-const char *pckDescriptor::getFieldName(int field) const
+const char *paqueteDescriptor::getFieldName(int field) const
 {
     omnetpp::cClassDescriptor *basedesc = getBaseClassDescriptor();
     if (basedesc) {
@@ -340,7 +340,7 @@ const char *pckDescriptor::getFieldName(int field) const
     return (field>=0 && field<2) ? fieldNames[field] : nullptr;
 }
 
-int pckDescriptor::findField(const char *fieldName) const
+int paqueteDescriptor::findField(const char *fieldName) const
 {
     omnetpp::cClassDescriptor *basedesc = getBaseClassDescriptor();
     int base = basedesc ? basedesc->getFieldCount() : 0;
@@ -349,7 +349,7 @@ int pckDescriptor::findField(const char *fieldName) const
     return basedesc ? basedesc->findField(fieldName) : -1;
 }
 
-const char *pckDescriptor::getFieldTypeString(int field) const
+const char *paqueteDescriptor::getFieldTypeString(int field) const
 {
     omnetpp::cClassDescriptor *basedesc = getBaseClassDescriptor();
     if (basedesc) {
@@ -364,7 +364,7 @@ const char *pckDescriptor::getFieldTypeString(int field) const
     return (field>=0 && field<2) ? fieldTypeStrings[field] : nullptr;
 }
 
-const char **pckDescriptor::getFieldPropertyNames(int field) const
+const char **paqueteDescriptor::getFieldPropertyNames(int field) const
 {
     omnetpp::cClassDescriptor *basedesc = getBaseClassDescriptor();
     if (basedesc) {
@@ -377,7 +377,7 @@ const char **pckDescriptor::getFieldPropertyNames(int field) const
     }
 }
 
-const char *pckDescriptor::getFieldProperty(int field, const char *propertyname) const
+const char *paqueteDescriptor::getFieldProperty(int field, const char *propertyname) const
 {
     omnetpp::cClassDescriptor *basedesc = getBaseClassDescriptor();
     if (basedesc) {
@@ -390,7 +390,7 @@ const char *pckDescriptor::getFieldProperty(int field, const char *propertyname)
     }
 }
 
-int pckDescriptor::getFieldArraySize(void *object, int field) const
+int paqueteDescriptor::getFieldArraySize(void *object, int field) const
 {
     omnetpp::cClassDescriptor *basedesc = getBaseClassDescriptor();
     if (basedesc) {
@@ -398,13 +398,13 @@ int pckDescriptor::getFieldArraySize(void *object, int field) const
             return basedesc->getFieldArraySize(object, field);
         field -= basedesc->getFieldCount();
     }
-    pck *pp = (pck *)object; (void)pp;
+    paquete *pp = (paquete *)object; (void)pp;
     switch (field) {
         default: return 0;
     }
 }
 
-const char *pckDescriptor::getFieldDynamicTypeString(void *object, int field, int i) const
+const char *paqueteDescriptor::getFieldDynamicTypeString(void *object, int field, int i) const
 {
     omnetpp::cClassDescriptor *basedesc = getBaseClassDescriptor();
     if (basedesc) {
@@ -412,13 +412,13 @@ const char *pckDescriptor::getFieldDynamicTypeString(void *object, int field, in
             return basedesc->getFieldDynamicTypeString(object,field,i);
         field -= basedesc->getFieldCount();
     }
-    pck *pp = (pck *)object; (void)pp;
+    paquete *pp = (paquete *)object; (void)pp;
     switch (field) {
         default: return nullptr;
     }
 }
 
-std::string pckDescriptor::getFieldValueAsString(void *object, int field, int i) const
+std::string paqueteDescriptor::getFieldValueAsString(void *object, int field, int i) const
 {
     omnetpp::cClassDescriptor *basedesc = getBaseClassDescriptor();
     if (basedesc) {
@@ -426,7 +426,7 @@ std::string pckDescriptor::getFieldValueAsString(void *object, int field, int i)
             return basedesc->getFieldValueAsString(object,field,i);
         field -= basedesc->getFieldCount();
     }
-    pck *pp = (pck *)object; (void)pp;
+    paquete *pp = (paquete *)object; (void)pp;
     switch (field) {
         case 0: return ulong2string(pp->getSeq());
         case 1: return ulong2string(pp->getType());
@@ -434,7 +434,7 @@ std::string pckDescriptor::getFieldValueAsString(void *object, int field, int i)
     }
 }
 
-bool pckDescriptor::setFieldValueAsString(void *object, int field, int i, const char *value) const
+bool paqueteDescriptor::setFieldValueAsString(void *object, int field, int i, const char *value) const
 {
     omnetpp::cClassDescriptor *basedesc = getBaseClassDescriptor();
     if (basedesc) {
@@ -442,7 +442,7 @@ bool pckDescriptor::setFieldValueAsString(void *object, int field, int i, const 
             return basedesc->setFieldValueAsString(object,field,i,value);
         field -= basedesc->getFieldCount();
     }
-    pck *pp = (pck *)object; (void)pp;
+    paquete *pp = (paquete *)object; (void)pp;
     switch (field) {
         case 0: pp->setSeq(string2ulong(value)); return true;
         case 1: pp->setType(string2ulong(value)); return true;
@@ -450,7 +450,7 @@ bool pckDescriptor::setFieldValueAsString(void *object, int field, int i, const 
     }
 }
 
-const char *pckDescriptor::getFieldStructName(int field) const
+const char *paqueteDescriptor::getFieldStructName(int field) const
 {
     omnetpp::cClassDescriptor *basedesc = getBaseClassDescriptor();
     if (basedesc) {
@@ -463,7 +463,7 @@ const char *pckDescriptor::getFieldStructName(int field) const
     };
 }
 
-void *pckDescriptor::getFieldStructValuePointer(void *object, int field, int i) const
+void *paqueteDescriptor::getFieldStructValuePointer(void *object, int field, int i) const
 {
     omnetpp::cClassDescriptor *basedesc = getBaseClassDescriptor();
     if (basedesc) {
@@ -471,7 +471,7 @@ void *pckDescriptor::getFieldStructValuePointer(void *object, int field, int i) 
             return basedesc->getFieldStructValuePointer(object, field, i);
         field -= basedesc->getFieldCount();
     }
-    pck *pp = (pck *)object; (void)pp;
+    paquete *pp = (paquete *)object; (void)pp;
     switch (field) {
         default: return nullptr;
     }

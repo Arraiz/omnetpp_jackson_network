@@ -38,8 +38,8 @@ void node::initialize()
 
 void node::handleMessage(cMessage *msg)
 {
-
-    EV << "MD: Message Arrived: " << msg->getId() <<" info" ;
+    cancelAndDelete(msgEvent);
+    EV << "MD: Message Arrived: to node1" ;
 
 }
 
