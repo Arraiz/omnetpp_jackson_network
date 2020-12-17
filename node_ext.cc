@@ -32,11 +32,11 @@ node_ext::~node_ext(){
 void node_ext::initialize()
 {
 
-    EV << "MD: Event received, sending packet\n";
-    cancelAndDelete(msgEvent);
-    msgEvent = new cMessage("MD: Sending Packet from source");
+   // EV << "MD: Event received, sending packet\n";
+   // cancelAndDelete(msgEvent);
+   // msgEvent = new cMessage("MD: Sending Packet from source");
 
-    scheduleAt(simTime()+exponential(1.0), msgEvent);
+   // scheduleAt(simTime()+exponential(1.0), msgEvent);
    // pck *buildedPck = buildPacket();
    // send(buildedPck, "out");
 
@@ -46,10 +46,13 @@ void node_ext::initialize()
 
 void node_ext::handleMessage(cMessage *msg)
 {
-   cancelAndDelete(msgEvent);
    if(msg->arrivedOn("packet_in")){
 
-       EV << "MD: message arrived to packet_in\n";
+       EV << "node_ext: message arrived to packet_in\n";
+       EV << "node_ext: Checking transmision time\n";
+       cChannel *txChannel = gate("out")->getTransmissionChannel();
+       simtime_t txFinishTime = txChannel->getTransmissionFinishTime();
+       EV << "node_ext: ready at time:"<< txFinishTime.getScale() <<"time\n";
        paquete *packet = check_and_cast<paquete*>(msg);
        sendCopyOf(packet);
 
@@ -60,12 +63,6 @@ void node_ext::sendCopyOf(paquete *msg)
 {
     /*Duplicar el mensaje y mandar una copia*/
     paquete *copy = (paquete*) msg->dup();
-
-    /*Set the retransmission timer to 3 times the sending time (just need to be greater than RTT)*/
-       simtime_t FinishTime = gate("out")->getTransmissionChannel()->getTransmissionFinishTime();
-       simtime_t nextTime = simTime()+3*(FinishTime-simTime());
-       scheduleAt(nextTime,timeout);
-
     send(copy, "out");
 }
 

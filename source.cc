@@ -12,10 +12,12 @@ class source : public cSimpleModule
   protected:
     virtual void initialize() override;
     virtual void handleMessage(cMessage *msg) override;
+    virtual void finish() override;
     virtual paquete *buildPacket();
 
   private:
-    cMessage *msgEvent;
+    paquete *newPacket;
+    int packet_counter=0;
 
 };
 
@@ -24,40 +26,48 @@ Define_Module(source);
 
 /*Destructor... Used to remove "undisposed object:...basic.source.pck-x"*/
 source::~source(){
-    cancelAndDelete(msgEvent);
+    cancelAndDelete(newPacket);
 }
 
 void source::initialize()
 {
 
-    //generate the traffic inyection a lambda rate
-    EV << "MD: Starting Source\n";
-    msgEvent = new cMessage("MD: Packet Source");
-    scheduleAt(0, msgEvent);
-
+    if(par("is_source")){//parametro definido en el NED
+        //Inicualizamos la fuente, contruimos el primer paquete y scheduleamos su envio
+        EV << getName()<<":"<<" Started\n";
+        newPacket = buildPacket();
+        scheduleAt(simTime()+exponential(1.0),newPacket);
+    }
 
 }
 
 
 void source::handleMessage(cMessage *msg)
 {
+    if(msg->isSelfMessage()){
+        // Enviamos el paquete previamente scheduleado contruimos otro y lo volvemos a schedulear
+        EV << getName()<<":"<<" sending packet\n";
+        send(newPacket, "out");
+        newPacket = buildPacket();
+        scheduleAt(simTime()+exponential(1.0),newPacket);
+    }
 
-    EV << "MD: Event received, sending packet\n";
-    cancelAndDelete(msgEvent);
-    msgEvent = new cMessage("MD: Sending Packet from source");
-
-    scheduleAt(simTime()+exponential(1.0), msgEvent);
-    paquete *buildedPck = buildPacket();
-    send(buildedPck, "out");
 
 }
 
 paquete *source::buildPacket(){
-    paquete *buildedPck = new paquete("test",0);
+    char packet_name[50];
+    packet_counter++;
+    sprintf(packet_name, "packet-%d", packet_counter);
+    EV << getName()<<":"<<"building paacket: "<<packet_name<<"\n";
+    paquete *buildedPck = new paquete(packet_name,0);
     buildedPck -> setBitLength(1024);
     return buildedPck;
 }
 
+void source::finish(){
+    cancelAndDelete(newPacket);
+}
 
 
 
