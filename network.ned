@@ -3,6 +3,8 @@ import ned.DatarateChannel;
 
 
 //Mikel Diez Garcia (Arraiz)
+
+// Fuente simple
 simple source
 {
     parameters:
@@ -13,6 +15,8 @@ simple source
         output out;
 }
 
+
+// Nodo exterior, como si fuese un router frontera
 simple node_ext
 {
     @display("i=block/routing");
@@ -21,6 +25,8 @@ simple node_ext
         input in;
         output out;
 }
+
+// Nodo del core de la red
 simple node
 {
     @display("i=block/routing");
@@ -30,19 +36,14 @@ simple node
 }
 
 
-network Two_node
+//Red con dos nodos 
+network Two_Nodes
 {
     @display("bgb=546.18665,214.57333");
     types:
         channel eth10 extends DatarateChannel
         {
             datarate = 9600bps;
-            per = 0.5;
-        }
-        channel eth100 extends DatarateChannel
-        {
-            datarate = 9600bps;
-            per = 0.5;
         }
     submodules:
         source: source {
@@ -56,24 +57,18 @@ network Two_node
         }
     connections:
         source.out --> node1.packet_in;
-        node1.out --> eth100 --> node2.in;
-        node2.out --> eth100 --> node1.in;
+        node1.out --> eth10 --> node2.in;
+        node2.out --> eth10 --> node1.in;
 
 }
 
-network Network
+network Two_Nodes_Queue
 {
     @display("bgb=546.18665,214.57333");
     types:
         channel eth10 extends DatarateChannel
         {
             datarate = 9600bps;
-            per = 0.5;
-        }
-        channel eth100 extends DatarateChannel
-        {
-            datarate = 9600bps;
-            per = 0.5;
         }
     submodules:
         source: source {
@@ -87,10 +82,12 @@ network Network
         }
     connections:
         source.out --> node1.packet_in;
-        node1.out --> eth100 --> node2.in;
-        node2.out --> eth100 --> node1.in;
+        node1.out --> eth10 --> node2.in;
+        node2.out --> eth10 --> node1.in;
 
 }
+
+
 
 
 

@@ -18,6 +18,9 @@ class node_ext : public cSimpleModule
 
   private:
     cMessage *msgEvent;
+    cQueue *queue;
+    cChannel *channel;
+
 
 };
 
@@ -32,13 +35,8 @@ node_ext::~node_ext(){
 void node_ext::initialize()
 {
 
-   // EV << "MD: Event received, sending packet\n";
-   // cancelAndDelete(msgEvent);
-   // msgEvent = new cMessage("MD: Sending Packet from source");
-
-   // scheduleAt(simTime()+exponential(1.0), msgEvent);
-   // pck *buildedPck = buildPacket();
-   // send(buildedPck, "out");
+    channel = gate("out")->getTransmissionChannel();
+    queue = new cQueue("node_ext_queue");
 
 
 }
@@ -46,13 +44,12 @@ void node_ext::initialize()
 
 void node_ext::handleMessage(cMessage *msg)
 {
-   if(msg->arrivedOn("packet_in")){
+   if(msg->arrivedOn("packet_in")){ //tranfico inyectado
 
-       EV << "node_ext: message arrived to packet_in\n";
-       EV << "node_ext: Checking transmision time\n";
-       cChannel *txChannel = gate("out")->getTransmissionChannel();
-       simtime_t txFinishTime = txChannel->getTransmissionFinishTime();
-       EV << "node_ext: ready at time:"<< txFinishTime.getScale() <<"time\n";
+       EV << getName()<< ": " << "message arrived to packet_in\n";
+       EV << getName()<< ": "<< "checking transmision time\n";
+       simtime_t txFinishTime = channel->getTransmissionFinishTime();
+       EV << getName() << ":" << "ready at time:"<< txFinishTime.getScale() <<"time\n";
        paquete *packet = check_and_cast<paquete*>(msg);
        sendCopyOf(packet);
 
