@@ -61,6 +61,7 @@ paquete *source::buildPacket(){
     sprintf(packet_name, "packet-%d", packet_counter);
     EV << getName()<<":"<<"building packet: "<<packet_name<<"\n";
     paquete *buildedPck = new paquete(packet_name,0);
+    buildedPck->setSeq(packet_counter);
     buildedPck -> setBitLength(1024);
     return buildedPck;
 }

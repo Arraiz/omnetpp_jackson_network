@@ -16,7 +16,7 @@ class node : public cSimpleModule
     virtual void initialize() override;
     virtual void handleMessage(cMessage *msg) override;
     virtual void sendCopyOf(paquete *packet);
-    virtual void sendAck();
+    virtual void sendAck(int seqNum);
 
   private:
     cMessage *msgEvent;
@@ -46,7 +46,7 @@ void node::initialize()
 
 void node::handleMessage(cMessage *msg)
 {
-    if(msg->arrivedOn("in")){ //tranfico inyectado
+    if(msg->arrivedOn("in")){// mirar si el trafico es n
 
            EV << getName()<< ": " << "message arrived to in\n";
            EV << getName()<< ": "<< "checking transmision time\n";
@@ -55,7 +55,7 @@ void node::handleMessage(cMessage *msg)
            paquete *packet = check_and_cast<paquete*>(msg);
            sscanf(packet->getName(), "packet-%d",&packet_number);
            EV << getName() << ":" << "packet number:"<< packet_number <<"\n";
-           sendAck();
+           sendAck(packet->getSeq());
 
 
        }
@@ -63,9 +63,12 @@ void node::handleMessage(cMessage *msg)
 
 }
 
-void node::sendAck(){
-    paquete *ack = new paquete("ACK",0);
-    ack->setBitLength(1);
+void node::sendAck(int seqNum){
+    char ack_name[50];
+    sprintf(ack_name, "ack-%d", seqNum);
+    paquete *ack = new paquete(ack_name,0);
+    ack->setBitLength(3000);
+    ack->setSeq(seqNum);
     send(ack,"out");
 
 }
