@@ -16,6 +16,7 @@ class node_ext : public cSimpleModule
   protected:
     virtual void initialize() override;
     virtual void handleMessage(cMessage *msg) override;
+    virtual void refreshDisplay() const override;
     virtual void sendCopyOf(paquete *packet);
     virtual void sendFromQueue();
 
@@ -26,6 +27,7 @@ class node_ext : public cSimpleModule
     cQueue *queue;
     cChannel *channel;
     unsigned short estado=0; //
+    bool lastAckConfirmed=false;
     enum estados
        {   ready_to_send = 0,
            sending = 1,
@@ -75,8 +77,20 @@ void node_ext::handleMessage(cMessage *msg)
 
     if(msg->isSelfMessage()){
 
+        EV << getName()<< ": " << "selfmsg type:"<<  msg->getFullName() <<"\n";
+        if(estado==sending){
+
         //*en teoria* hemos terminado de enviar el mensaje y estamos esperando ACK
-        estado=waiting_ack;
+            estado=waiting_ack;
+        }
+        else if(estado==waiting_ack){
+
+            if(!channel->isBusy()){
+                sendFromQueue();
+            }
+
+
+        }
 
     }
 
@@ -88,7 +102,7 @@ void node_ext::handleMessage(cMessage *msg)
 
          case ready_to_send:
          {
-           estado=sending;
+           lastAckConfirmed=false;
            EV << getName()<< ": " << "message arrived to packet_in, state: ready to send Sending\n";
            sendCopyOf(pck);
            break;
@@ -96,7 +110,6 @@ void node_ext::handleMessage(cMessage *msg)
          case sending:{
            //encola y schedulea
            EV << getName()<< ": " << "message arrived to packet_in, state: sending, Queuing\n";
-
            queue->insert(pck);
            simtime_t txFinishTime = channel->getTransmissionFinishTime(); //esto es un poco magia negra...
            scheduleAt(txFinishTime,new cMessage("Queue event"));
@@ -106,9 +119,19 @@ void node_ext::handleMessage(cMessage *msg)
          }
          case waiting_ack:{
             //encola
-             EV << getName()<< ": " << "message arrived to packet_in sate: waiting ACK , Queuing\n";
-             queue->insert(pck);
-             EV << getName()<< ": " << "queue size: " << queue->getLength()  <<"\n";
+           EV << getName()<< ": " << "message arrived to packet_in sate: waiting ACK , Queuing\n";
+             //encola y schedulea
+           queue->insert(pck);
+           simtime_t txFinishTime = channel->getTransmissionFinishTime(); //esto es un poco magia negra...
+
+           if(txFinishTime <= getSimulation()->getSimTime()){
+               scheduleAt(getSimulation()->getSimTime(),new cMessage("Queue event"));
+           }else{
+               scheduleAt(txFinishTime,new cMessage("Queue event"));
+           }
+
+           //EV << getName()<< ": " << "queue size: " << queue->getLength()  <<"\n";
+           // code block
             break;
          }
 
@@ -116,7 +139,11 @@ void node_ext::handleMessage(cMessage *msg)
 
    }else if(msg->arrivedOn("in")){//es un ack
        EV << getName()<< ": " << "ACK rec\n";
+
        estado=ready_to_send;
+       //mirar numero se sencuencia
+       lastAckConfirmed=true;
+
 
    }
 
@@ -127,8 +154,16 @@ void node_ext::sendFromQueue()
 {
     /*Duplicar el mensaje y mandar una copia*/
 
-    queuePack = (paquete *)queue -> pop();
-    sendCopyOf(queuePack);
+
+      if(queue->getLength()>=1){
+      estado=sending;
+      lastAckConfirmed=false;
+      EV << getName()<< ": " << "Senging msg from the queue\n";
+      queuePack = (paquete *)queue -> pop();
+      send(queuePack, "out");
+      simtime_t txFinishTime = channel->getTransmissionFinishTime(); //esto es un poco magia negra...
+      scheduleAt(txFinishTime,new cMessage("from_queue"));
+      }
 }
 
 
@@ -139,8 +174,17 @@ void node_ext::sendCopyOf(paquete *msg)
     paquete *copy = (paquete*) msg->dup();
     send(copy, "out");
     simtime_t txFinishTime = channel->getTransmissionFinishTime(); //esto es un poco magia negra...
-    scheduleAt(txFinishTime,new cMessage("state2"));
+    scheduleAt(txFinishTime,new cMessage("from_send"));
 
 }
+
+
+void node_ext::refreshDisplay() const
+    {
+        char buf[40];
+        sprintf(buf, "state: %d\nCola: %d\nlastAckConfirmed: %i", estado,queue->getLength(),lastAckConfirmed);
+        getDisplayString().setTagArg("t", 0, buf);
+    }
+
 
 
