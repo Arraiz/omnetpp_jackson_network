@@ -18,6 +18,7 @@ class source : public cSimpleModule
   private:
     paquete *newPacket;
     int packet_counter=0;
+    int counter=50;
 
 };
 
@@ -44,14 +45,15 @@ void source::initialize()
 
 void source::handleMessage(cMessage *msg)
 {
-    if(msg->isSelfMessage()){
-        // Enviamos el paquete previamente scheduleado contruimos otro y lo volvemos a schedulear
-        EV << getName()<<":"<<" sending packet\n";
-        send(newPacket, "out");
-        newPacket = buildPacket();
-        scheduleAt(simTime()+exponential(1.0),newPacket);
+    if(packet_counter<=counter){
+        if(msg->isSelfMessage()){
+            // Enviamos el paquete previamente scheduleado contruimos otro y lo volvemos a schedulear
+            EV << getName()<<":"<<" sending packet\n";
+            send(newPacket, "out");
+            newPacket = buildPacket();
+            scheduleAt(simTime()+exponential(1.0),newPacket);
+        }
     }
-
 
 }
 

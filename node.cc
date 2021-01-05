@@ -17,6 +17,7 @@ class node : public cSimpleModule
     virtual void handleMessage(cMessage *msg) override;
     virtual void sendCopyOf(paquete *packet);
     virtual void sendAck(int seqNum);
+    virtual void s_w_receriver(cMessage *msg);
 
   private:
     cMessage *msgEvent;
@@ -47,34 +48,35 @@ void node::initialize()
 
 void node::handleMessage(cMessage *msg)
 {
-    if(msg->arrivedOn("in")){// mirar si el trafico es n
-           EV << getName()<< ": " << "message arrived to in\n";
-          paquete *packet = check_and_cast<paquete*>(msg);
-           sscanf(packet->getName(), "packet-%d",&packet_number);
-           EV << getName() << ":" << "packet number:"<< packet_number <<"\n";
-           ackMessage = new cMessage("ackMsg");
-           ackMessage->addPar("seqNum").setLongValue(packet_number);
 
-           if(channel->isBusy()){// si el canal esta ocupado sceduleamos
-               simtime_t txFinishTime = channel->getTransmissionFinishTime();
-               scheduleAt(txFinishTime,ackMessage);
-           }else{//sino mandamos directamente
-               scheduleAt(simTime(),ackMessage);
-
-           }
-       }
-    else if(msg->isSelfMessage()){
-        EV << getName() << ":" << "Handling self-message:"<< msg->getFullName() <<"\n";
-        if(strcmp(msg->getFullName(), "ackMsg")==0){
-            sendAck(msg->par("seqNum").longValue());
-        }
-    }
-
+    s_w_receriver(msg);
 
 }
 
+void node::s_w_receriver(cMessage *msg){
 
-void sendReply(int seqNum){
+    if(msg->arrivedOn("in")){// mirar si el trafico es n
+             EV << getName()<< ": " << "message arrived to in\n";
+            paquete *packet = check_and_cast<paquete*>(msg);
+             sscanf(packet->getName(), "packet-%d",&packet_number);
+             EV << getName() << ":" << "packet number:"<< packet_number <<"\n";
+             ackMessage = new cMessage("ackMsg");
+             ackMessage->addPar("seqNum").setLongValue(packet_number);
+
+             if(channel->isBusy()){// si el canal esta ocupado sceduleamos
+                 simtime_t txFinishTime = channel->getTransmissionFinishTime();
+                 scheduleAt(txFinishTime,ackMessage);
+             }else{//sino mandamos directamente
+                 scheduleAt(simTime(),ackMessage);
+
+             }
+         }
+      else if(msg->isSelfMessage()){
+          EV << getName() << ":" << "Handling self-message:"<< msg->getFullName() <<"\n";
+          if(strcmp(msg->getFullName(), "ackMsg")==0){
+              sendAck(msg->par("seqNum").longValue());
+          }
+      }
 
 }
 
@@ -82,9 +84,9 @@ void node::sendAck(int seqNum){
 
     char ack_name[50];
 
-    if((rand()%100)>50){ //envia paquete
+    if((rand()%100)>0){ //probabilidad de no devolver paquete pqueloss..
 
-        if((rand()%100)>20){
+        if((rand()%100)<0){ //probabilidad de nak
                 //nack
             EV << getName() << ":" << "Sending nack\n";
             sprintf(ack_name, "nack-%d", seqNum);
@@ -102,6 +104,7 @@ void node::sendAck(int seqNum){
             ack->setSeq(seqNum);
             ack->setType(1);
             send(ack,"out");
+            //enviar paquete a siguiente red
             }
 
     }else{//pierde pqt

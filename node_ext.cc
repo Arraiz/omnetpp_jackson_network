@@ -18,12 +18,14 @@ class node_ext : public cSimpleModule
     virtual void handleMessage(cMessage *msg) override;
     virtual void refreshDisplay() const override;
     virtual void sendCopyOf(paquete *packet);
-    virtual void sendFromQueue();
+    virtual void s_w_sender(cMessage *msg);
+
 
   private:
     cMessage *msgEvent;
     cMessage *timerEvent;
     cMessage *pckTxTime;
+    cMessage *readyTosend;
     paquete *pck;
     paquete *queuePack;
     cMessage *queueEvent;
@@ -74,59 +76,9 @@ void node_ext::initialize()
 
 void node_ext::handleMessage(cMessage *msg){
 
+        s_w_sender(msg);
 
 
-
-    if(msg->arrivedOn("packet_in") || msg->arrivedOn("in")){
-     pck = check_and_cast<paquete*>(msg);
-    }
-
-
-
-    if(msg->isSelfMessage()){ //ackTxTime, temporizador
-        EV << getName()<< ": " << "self-msg received"<<msg->getFullName()<<" \n";
-        if(strcmp(msg->getFullName(), "pckTxTime") == 0){ //tiempo de transmision de paquete
-            EV << getName()<< ": " << "waiting ack \n";
-            estado=WAITING_ACK;
-        }else if(strcmp(msg->getFullName(), "timer") == 0){
-            cancelEvent(pckTxTime);
-            estado=SENDING;
-            EV << getName()<< ": " << "timer triggered \n";
-            pck = (paquete*)confirmationQueue->pop();
-            sendCopyOf(pck);
-        }
-
-    }else if(pck->getType() == 0){ // es un packete normal
-       // EV << getName()<< ": " << "self-msg received \n";
-        switch (estado) {
-            case READY_TO_SEND:
-                sendCopyOf(pck);
-                break;
-            case SENDING:
-                queue->insert(pck);
-                break;
-
-            case WAITING_ACK:
-                queue->insert(pck);
-                break;
-            default:
-                break;
-        }
-    }else{ // es un ACK o NACK
-        cancelEvent(timerEvent);
-        if(pck->getType() == 1){
-            EV << getName()<< ": " << "ack received "<<msg->getFullName()<<"\n";
-            confirmationQueue->pop();
-            estado=READY_TO_SEND;
-
-        }else { //es un nack
-            estado=SENDING;
-            pck = (paquete*)confirmationQueue->pop();
-            //aqui no se pasa a ready to send, ya que es prioritario transmitir el paquete anterior
-            sendCopyOf(pck);
-        }
-
-    }
 }
 /*
 void node_ext::handleMessage(cMessage *msg)
@@ -210,27 +162,93 @@ void node_ext::handleMessage(cMessage *msg)
 
 */
 
-void node_ext::sendFromQueue()
-{
 
-    estado=SENDING;
-     if(queue->getLength()>0){
-         EV << getName()<< ": " << "Sending from queue\n";
-         queuePack = (paquete *)queue->pop();
-         paquete *copyQueuePack = (paquete*) queuePack->dup();
-         confirmationQueue->insert(queuePack);
-         send(copyQueuePack, "out");
-         simtime_t txFinishTime = channel->getTransmissionFinishTime(); //esto es un poco magia negra...
-         scheduleAt(txFinishTime,new cMessage("queue"));
 
-         scheduleAt(txFinishTime*2,new cMessage("queue"));
-     }
+void node_ext::s_w_sender(cMessage *msg){
+
+
+    if(msg->arrivedOn("packet_in") || msg->arrivedOn("in")){
+     pck = check_and_cast<paquete*>(msg);
+    }
 
 
 
+    if(msg->isSelfMessage() && strcmp(msg->getFullName(), "readyToSend") != 0 ){ //ackTxTime, temporizador
+        EV << getName()<< ": " << "self-msg received: "<<msg->getFullName()<<" \n";
+        if(strcmp(msg->getFullName(), "pckTxTime") == 0){ //tiempo de transmision de paquete
+            EV << getName()<< ": " << "waiting ack \n";
+            estado=WAITING_ACK;
+        }else if(strcmp(msg->getFullName(), "timer") == 0){
+            cancelEvent(pckTxTime);
+            estado=SENDING;
+            EV << getName()<< ": " << "timer triggered \n";
+            pck = (paquete*)confirmationQueue->pop();
+            sendCopyOf(pck);
+        }
 
+    }else if(pck->getType() == 0  || strcmp(msg->getFullName(), "readyToSend") == 0 ){ // es un packete normal
+        EV << getName()<< "event in to FSM: "<< msg->getFullName() << "\n";
+
+        switch (estado) {
+            case READY_TO_SEND:
+               EV << getName()<< "state-machine: READY TO SEND\n";
+               //first send from queue
+               if(queue->getLength() == 0 && pck != NULL  ){
+                   if( pck->getType() == 0){
+                       EV << getName()<< "forwarding regular packet\n";
+                       sendCopyOf(pck);
+                   }
+               }else{
+
+                   //si justo viene un packete
+                   if(pck->getType()==0){
+                   EV << getName()<< "sending queue packet\n";
+                   queue->insert(pck);
+                   pck = (paquete *)queue->pop();
+                   sendCopyOf(pck);
+                   }else{
+                       pck = (paquete *)queue->pop();
+                       sendCopyOf(pck);
+                   }
+               }
+              break;
+            case SENDING:
+                EV << getName()<< "state-machine: SENDING\n";
+                if(pck->getType()==0){
+                    queue->insert(pck);
+                }
+
+                break;
+
+            case WAITING_ACK:
+                EV << getName()<< "state-machine: WAITING ACK\n";
+                if(pck->getType()==0){
+                    queue->insert(pck);
+                }
+                break;
+            default:
+                break;
+        }
+    }else{ // es un ACK o NACK
+        cancelEvent(timerEvent);
+        if(pck->getType() == 1){
+            EV << getName()<< ": " << "ack received "<<msg->getFullName()<<"\n";
+            confirmationQueue->pop();
+            estado=READY_TO_SEND;
+            //delete pck;
+            readyTosend=new cMessage("readyToSend");
+            scheduleAt(simTime(),readyTosend);
+            //enviar que estamos ready to send
+
+        }else { //es un nack
+            estado=SENDING;
+            pck = (paquete*)confirmationQueue->pop();
+            //aqui no se pasa a ready to send, ya que es prioritario transmitir el paquete anterior
+            sendCopyOf(pck);
+        }
+
+    }
 }
-
 
 void node_ext::sendCopyOf(paquete *msg)
 {
