@@ -22,16 +22,21 @@ class node_ext : public cSimpleModule
 
   private:
     cMessage *msgEvent;
+    cMessage *timerEvent;
+    cMessage *pckTxTime;
+    paquete *pck;
     paquete *queuePack;
     cMessage *queueEvent;
     cQueue *queue;
+    cQueue *confirmationQueue;
     cChannel *channel;
     unsigned short estado=0; //
     bool lastAckConfirmed=false;
+    double TIMER=1000;
     enum estados
-       {   ready_to_send = 0,
-           sending = 1,
-           waiting_ack = 2,
+       {   READY_TO_SEND = 0,
+           SENDING = 1,
+           WAITING_ACK = 2,
        };
     /*
      * 0: ready_to_send
@@ -57,6 +62,7 @@ void node_ext::initialize()
 
     channel = gate("out")->getTransmissionChannel();
     queue = new cQueue("node_ext_queue");
+    confirmationQueue = new cQueue("node_ext_queue_ack_queue");
     WATCH(estado);
 
 
@@ -65,25 +71,74 @@ void node_ext::initialize()
 }
 
 
+
+void node_ext::handleMessage(cMessage *msg){
+
+
+
+
+    if(msg->arrivedOn("packet_in") || msg->arrivedOn("in")){
+     pck = check_and_cast<paquete*>(msg);
+    }
+
+
+
+    if(msg->isSelfMessage()){ //ackTxTime, temporizador
+        EV << getName()<< ": " << "self-msg received"<<msg->getFullName()<<" \n";
+        if(strcmp(msg->getFullName(), "pckTxTime") == 0){ //tiempo de transmision de paquete
+            EV << getName()<< ": " << "waiting ack \n";
+            estado=WAITING_ACK;
+        }else if(strcmp(msg->getFullName(), "timer") == 0){
+            cancelEvent(pckTxTime);
+            estado=SENDING;
+            EV << getName()<< ": " << "timer triggered \n";
+            pck = (paquete*)confirmationQueue->pop();
+            sendCopyOf(pck);
+        }
+
+    }else if(pck->getType() == 0){ // es un packete normal
+       // EV << getName()<< ": " << "self-msg received \n";
+        switch (estado) {
+            case READY_TO_SEND:
+                sendCopyOf(pck);
+                break;
+            case SENDING:
+                queue->insert(pck);
+                break;
+
+            case WAITING_ACK:
+                queue->insert(pck);
+                break;
+            default:
+                break;
+        }
+    }else{ // es un ACK o NACK
+        cancelEvent(timerEvent);
+        if(pck->getType() == 1){
+            EV << getName()<< ": " << "ack received "<<msg->getFullName()<<"\n";
+            confirmationQueue->pop();
+            estado=READY_TO_SEND;
+
+        }else { //es un nack
+            estado=SENDING;
+            pck = (paquete*)confirmationQueue->pop();
+            //aqui no se pasa a ready to send, ya que es prioritario transmitir el paquete anterior
+            sendCopyOf(pck);
+        }
+
+    }
+}
+/*
 void node_ext::handleMessage(cMessage *msg)
 {
-
-  /*  if(msg->isSelfMessage() && channel->isBusy() ){
-        EV << getName()<< ": " << "Queue event arrived: sending queue paquet\n";
-        sendFromQueue();
-        EV << getName()<< ": " << "queue size: " << queue->getLength()  <<"\n";
-    }
-*/
-
+    paquete *pck = check_and_cast<paquete*>(msg);
     if(msg->isSelfMessage()){
 
-        EV << getName()<< ": " << "selfmsg type:"<<  msg->getFullName() <<"\n";
-        if(estado==sending){
-
-        //*en teoria* hemos terminado de enviar el mensaje y estamos esperando ACK
-            estado=waiting_ack;
+        EV << getName()<< ": " << "selfmsg type: "<<  msg->getFullName() <<"\n";
+        if(estado==SENDING){
+            estado=WAITING_ACK;
         }
-        else if(estado==waiting_ack){
+        else if(estado==WAITING_ACK){
 
             if(!channel->isBusy()){
                 sendFromQueue();
@@ -94,87 +149,107 @@ void node_ext::handleMessage(cMessage *msg)
 
     }
 
-   if(msg->arrivedOn("packet_in")){ //mirar si el trafico es para inyectar en la red
+   if(msg->arrivedOn("packet_in")||msg->getFullName()=="queueMsg"){ //mirar si el trafico es para inyectar en la red
        paquete *pck = check_and_cast<paquete*>(msg);
+       EV << getName()<< "state machine: packet type: " << msg->getFullName() <<"\n";
        switch(estado) {
-
-
-
-         case ready_to_send:
+         case READY_TO_SEND:
          {
-           lastAckConfirmed=false;
            EV << getName()<< ": " << "message arrived to packet_in, state: ready to send Sending\n";
            sendCopyOf(pck);
            break;
          }
-         case sending:{
+         case SENDING:{
            //encola y schedulea
            EV << getName()<< ": " << "message arrived to packet_in, state: sending, Queuing\n";
            queue->insert(pck);
-           simtime_t txFinishTime = channel->getTransmissionFinishTime(); //esto es un poco magia negra...
-           scheduleAt(txFinishTime,new cMessage("Queue event"));
+           simtime_t txFinishTime = channel->getTransmissionFinishTime();
+           scheduleAt(txFinishTime,new cMessage("Queueing"));
            EV << getName()<< ": " << "queue size: " << queue->getLength()  <<"\n";
            // code block
            break;
          }
-         case waiting_ack:{
+         case WAITING_ACK:{
             //encola
            EV << getName()<< ": " << "message arrived to packet_in sate: waiting ACK , Queuing\n";
              //encola y schedulea
            queue->insert(pck);
-           simtime_t txFinishTime = channel->getTransmissionFinishTime(); //esto es un poco magia negra...
-
+           simtime_t txFinishTime = channel->getTransmissionFinishTime();
            if(txFinishTime <= getSimulation()->getSimTime()){
-               scheduleAt(getSimulation()->getSimTime(),new cMessage("Queue event"));
+               scheduleAt(getSimulation()->getSimTime(),new cMessage("queueMsg"));
            }else{
-               scheduleAt(txFinishTime,new cMessage("Queue event"));
+               scheduleAt(txFinishTime,new cMessage("queueMsg"));
            }
-
-           //EV << getName()<< ": " << "queue size: " << queue->getLength()  <<"\n";
-           // code block
             break;
          }
 
        }
 
    }else if(msg->arrivedOn("in")){//es un ack
-       EV << getName()<< ": " << "ACK rec\n";
 
-       estado=ready_to_send;
-       //mirar numero se sencuencia
-       lastAckConfirmed=true;
+       paquete *pck = check_and_cast<paquete*>(msg);
+       EV << getName()<< ": " << "ACK rec: msg type"<<pck->getType()<< "\n";
+       if(pck->getType()==1){
+           //ack
+           EV << getName()<< ": " << "ack received, poping from ackQueue\n";
+           confirmationQueue->pop();
+           estado=READY_TO_SEND;
 
+
+       }else if(pck->getType()==2){
+           //nack
+           EV << getName()<< ": " << "nack received,resending\n";
+           paquete *nackPack = (paquete*)confirmationQueue->pop();
+           sendCopyOf(nackPack);
+
+       }
 
    }
 
 }
 
+*/
 
 void node_ext::sendFromQueue()
 {
-    /*Duplicar el mensaje y mandar una copia*/
+
+    estado=SENDING;
+     if(queue->getLength()>0){
+         EV << getName()<< ": " << "Sending from queue\n";
+         queuePack = (paquete *)queue->pop();
+         paquete *copyQueuePack = (paquete*) queuePack->dup();
+         confirmationQueue->insert(queuePack);
+         send(copyQueuePack, "out");
+         simtime_t txFinishTime = channel->getTransmissionFinishTime(); //esto es un poco magia negra...
+         scheduleAt(txFinishTime,new cMessage("queue"));
+
+         scheduleAt(txFinishTime*2,new cMessage("queue"));
+     }
 
 
-      if(queue->getLength()>=1){
-      estado=sending;
-      lastAckConfirmed=false;
-      EV << getName()<< ": " << "Senging msg from the queue\n";
-      queuePack = (paquete *)queue -> pop();
-      send(queuePack, "out");
-      simtime_t txFinishTime = channel->getTransmissionFinishTime(); //esto es un poco magia negra...
-      scheduleAt(txFinishTime,new cMessage("from_queue"));
-      }
+
+
 }
 
 
 void node_ext::sendCopyOf(paquete *msg)
 {
+
+
+    estado=SENDING;
+    EV << getName()<< ": " << "sendCopy of "<<msg->getFullName()<<"\n";
     /*Duplicar el mensaje y mandar una copia*/
-    estado=sending;
+    confirmationQueue->insert(msg);
     paquete *copy = (paquete*) msg->dup();
     send(copy, "out");
-    simtime_t txFinishTime = channel->getTransmissionFinishTime(); //esto es un poco magia negra...
-    scheduleAt(txFinishTime,new cMessage("from_send"));
+    simtime_t txFinishTime = channel->getTransmissionFinishTime();
+    pckTxTime=new cMessage("pckTxTime");
+    scheduleAt(txFinishTime,pckTxTime); //paquete ha llegado
+    timerEvent = new cMessage("timer");
+    scheduleAt(txFinishTime*1.3,timerEvent); //timer para repeticion
+
+
+
 
 }
 
@@ -182,7 +257,7 @@ void node_ext::sendCopyOf(paquete *msg)
 void node_ext::refreshDisplay() const
     {
         char buf[40];
-        sprintf(buf, "state: %d\nCola: %d\nlastAckConfirmed: %i", estado,queue->getLength(),lastAckConfirmed);
+        sprintf(buf, "state: %d\nCola: %d\nconf: %d", estado,queue->getLength(),confirmationQueue->getLength());
         getDisplayString().setTagArg("t", 0, buf);
     }
 

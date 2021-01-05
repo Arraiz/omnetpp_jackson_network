@@ -20,6 +20,7 @@ class node : public cSimpleModule
 
   private:
     cMessage *msgEvent;
+    cMessage *ackMessage;
     cQueue *queue;
     cChannel *channel;
     int packet_number=0;
@@ -47,38 +48,71 @@ void node::initialize()
 void node::handleMessage(cMessage *msg)
 {
     if(msg->arrivedOn("in")){// mirar si el trafico es n
-
-
            EV << getName()<< ": " << "message arrived to in\n";
-           EV << getName()<< ": "<< "checking transmision time\n";
-           //simtime_t txFinishTime = channel->getTransmissionFinishTime();
-          // EV << getName() << ":" << "ready at time:"<< txFinishTime.getScale() <<"time\n";
-           paquete *packet = check_and_cast<paquete*>(msg);
+          paquete *packet = check_and_cast<paquete*>(msg);
            sscanf(packet->getName(), "packet-%d",&packet_number);
            EV << getName() << ":" << "packet number:"<< packet_number <<"\n";
-           //sendAck(packet->getSeq());
-           simtime_t txFinishTime = channel->getTransmissionFinishTime();
-           sendAck(packet->getSeq());
-           //scheduleAt(txFinishTime,new cMessage("ack"));
+           ackMessage = new cMessage("ackMsg");
+           ackMessage->addPar("seqNum").setLongValue(packet_number);
 
+           if(channel->isBusy()){// si el canal esta ocupado sceduleamos
+               simtime_t txFinishTime = channel->getTransmissionFinishTime();
+               scheduleAt(txFinishTime,ackMessage);
+           }else{//sino mandamos directamente
+               scheduleAt(simTime(),ackMessage);
+
+           }
        }
     else if(msg->isSelfMessage()){
-        paquete *packet = check_and_cast<paquete*>(msg);
-        sendAck(packet->getSeq());
+        EV << getName() << ":" << "Handling self-message:"<< msg->getFullName() <<"\n";
+        if(strcmp(msg->getFullName(), "ackMsg")==0){
+            sendAck(msg->par("seqNum").longValue());
+        }
     }
 
 
 }
 
-void node::sendAck(int seqNum){
-    char ack_name[50];
-    sprintf(ack_name, "ack-%d", seqNum);
-    paquete *ack = new paquete(ack_name,0);
-    ack->setBitLength(1);
-    ack->setSeq(seqNum);
-    send(ack,"out");
+
+void sendReply(int seqNum){
 
 }
+
+void node::sendAck(int seqNum){
+
+    char ack_name[50];
+
+    if((rand()%100)>50){ //envia paquete
+
+        if((rand()%100)>20){
+                //nack
+            EV << getName() << ":" << "Sending nack\n";
+            sprintf(ack_name, "nack-%d", seqNum);
+            paquete *nack = new paquete(ack_name,2);
+            nack->setBitLength(2);
+            nack->setSeq(seqNum);
+            nack->setType(2);
+            send(nack,"out");
+            }else{
+                //ack
+            EV << getName() << ":" << "Sending ack\n";
+            sprintf(ack_name, "ack-%d", seqNum);
+            paquete *ack = new paquete(ack_name,1);
+            ack->setBitLength(20);
+            ack->setSeq(seqNum);
+            ack->setType(1);
+            send(ack,"out");
+            }
+
+    }else{//pierde pqt
+        EV << getName() << ":" << "loosing packet\n";
+    }
+
+}
+
+
+
+
 
 void node::sendCopyOf(paquete *msg)
 {

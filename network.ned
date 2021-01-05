@@ -43,7 +43,7 @@ network Two_Nodes
     types:
         channel eth10 extends DatarateChannel
         {
-            datarate = 4000bps;
+            datarate = 400bps;
         }
         channel eth100 extends DatarateChannel
         {
@@ -62,7 +62,7 @@ network Two_Nodes
     connections:
         source.out --> node1.packet_in;
         node1.out --> eth100 --> node2.in;
-        node2.out --> eth10 --> node1.in;
+        node2.out --> eth100 --> node1.in;
 
 }
 

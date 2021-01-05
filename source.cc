@@ -63,6 +63,7 @@ paquete *source::buildPacket(){
     paquete *buildedPck = new paquete(packet_name,0);
     buildedPck->setSeq(packet_counter);
     buildedPck -> setBitLength(1024);
+    buildedPck->setType(0);
     return buildedPck;
 }
 
