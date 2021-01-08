@@ -84,6 +84,7 @@ void node::sendAck(int seqNum){
 
     char ack_name[50];
 
+
     if((rand()%100)>0){ //probabilidad de no devolver paquete pqueloss..
 
         if((rand()%100)<0){ //probabilidad de nak

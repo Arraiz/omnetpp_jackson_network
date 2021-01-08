@@ -20,17 +20,26 @@ class node_ext : public cSimpleModule
     virtual void sendCopyOf(paquete *packet);
     virtual void s_w_sender(cMessage *msg);
 
+    virtual void gbn_sender(cMessage *msg);
+    virtual void gbn_windowSlide();
+
+
 
   private:
     cMessage *msgEvent;
     cMessage *timerEvent;
-    cMessage *pckTxTime;
+    cMessage *pckTxTime;//stop and wait
+
     cMessage *readyTosend;
     paquete *pck;
     paquete *queuePack;
     cMessage *queueEvent;
     cQueue *queue;
     cQueue *confirmationQueue;
+
+    cMessage *txLineFree;//stop and wait
+
+    cQueue *GbnWindowQueue;
     cChannel *channel;
     unsigned short estado=0; //
     bool lastAckConfirmed=false;
@@ -40,6 +49,14 @@ class node_ext : public cSimpleModule
            SENDING = 1,
            WAITING_ACK = 2,
        };
+    unsigned int N=10;
+    unsigned int estadoGBN=0;
+    enum estados_GBN{
+        GBN_READY=0,
+        GBN_WINDOWFULL=1,
+        GBN_VENTANA=2
+
+    };
     /*
      * 0: ready_to_send
      * 1: sending (busy)
@@ -65,7 +82,9 @@ void node_ext::initialize()
     channel = gate("out")->getTransmissionChannel();
     queue = new cQueue("node_ext_queue");
     confirmationQueue = new cQueue("node_ext_queue_ack_queue");
+    GbnWindowQueue = new cQueue("GBN-Window-queue");
     WATCH(estado);
+    WATCH(estadoGBN);
 
 
 
@@ -76,7 +95,111 @@ void node_ext::initialize()
 
 void node_ext::handleMessage(cMessage *msg){
 
-        s_w_sender(msg);
+
+
+
+
+    if(msg->arrivedOn("packet_in") || msg->arrivedOn("in")){
+       pck = check_and_cast<paquete*>(msg);
+    }
+    EV << getName()<<" "<< ": " << "Enter state machine with: "<<msg->getFullName()<<"\n";
+    switch (estadoGBN) {
+        case GBN_READY:
+            EV << getName()<<" "<< ": " << "GBN_READY: "<<pck->getFullName()<<"\n";
+
+
+            if (strcmp(msg->getFullName(), "txLineFree")==0){ //gestionamos la cola
+                EV << getName()<<" "<< ": " << "LINE FREE: "<<pck->getFullName()<<"\n";
+                if(queue->getLength() != 0){
+                pck = (paquete *)queue->pop();
+                sendCopyOf(pck);
+                }
+               //comprovar ventana
+               if(GbnWindowQueue->getLength()>=N){
+                   estadoGBN=GBN_WINDOWFULL;
+               }
+
+
+           }else if(pck->getType()== 0){ // paquete de datos
+
+                //enviamos si se puede
+                if(queue->getLength()==0){
+                    sendCopyOf(pck);
+                }else{
+                    pck = (paquete *)queue->pop();
+                    sendCopyOf(pck);
+                }
+                //comprovar ventana
+                if(GbnWindowQueue->getLength()>=N){
+                    estadoGBN=GBN_WINDOWFULL;
+                }
+
+            }else if (pck->getType() == 1) { //ack
+
+                //si viene ack gestionamos la ventana
+                gbn_windowSlide();
+
+
+            }else if (pck->getType() == 2){ //nack
+
+
+
+            }
+
+        break;
+
+        case GBN_WINDOWFULL:
+            EV << getName()<<" "<< ": " << "WINDOW_FULL: "<<pck->getFullName()<<"\n";
+            //ventana completa, solo podemos encolar
+            if (strcmp(msg->getFullName(), "txLineFree")==0){ //gestionamos la cola
+                EV << getName()<<" "<< ": " << "LINE FREE, WINDOW FULL: "<<pck->getFullName()<<"\n";
+
+
+            }else  if(pck->getType()== 0){ // paquete de datos
+                EV << getName()<<" "<< ": " << "WINDOW_FULL: QUEUING -->"<<pck->getFullName()<<"\n";
+                queue->insert(pck);
+
+
+           }else if (pck->getType() == 1) { //ack
+                  //desplazar ventana y mirar si podemos enviar
+                   GbnWindowQueue->pop();
+                   if(GbnWindowQueue->getLength()<N){
+                       //podemos enviar
+                       estadoGBN=GBN_READY;
+                       //lanzar mensaje para poder enviar desde la cola
+                   }
+
+
+           }else if (pck->getType() == 2){ //nack
+
+
+           }
+
+            break;
+
+        case GBN_VENTANA:
+
+            // estamos gestionando la ventana, encolamos
+
+            break;
+        default:
+            break;
+
+    }
+    //aliminar los pquetes
+    if(channel->isBusy()){
+        simtime_t txFinishTime = channel->getTransmissionFinishTime();
+        txLineFree=new cMessage("txLineFree");
+    }else{
+        txLineFree=new cMessage("txLineFree");
+        scheduleAt(simTime()+exponential(1.0),txLineFree);
+    }
+
+
+
+
+
+    //s_w_sender(msg);
 
 
 }
@@ -163,10 +286,78 @@ void node_ext::handleMessage(cMessage *msg)
 */
 
 
+void node_ext::gbn_windowSlide(){
+    GbnWindowQueue->pop();
+}
+
+void node_ext::gbn_sender(cMessage *msg){
+    /*
+    paquete *pck;
+    EV << getName()<< " Incoming event: "<< msg->getFullName() << "\n";
+    if(msg->arrivedOn("packet_in") || msg->arrivedOn("in")){
+        pck = check_and_cast<paquete*>(msg);
+    }else{
+        delete pck;
+    }
+    EV << getName()<< "event in to FSM: "<< msg->getFullName() << "\n";
+    switch (estadoGBN) {
+
+        case GBN_SENDING:
+            if(pck->getType()==0){
+                EV << getName()<< " GBN_SENDING: "<< msg->getFullName() << "\n";
+                if(GbnWindowQueue->getLength()<N){
+
+                    if(queue->getLength()==0){
+                        sendCopyOf(pck);
+                    }else{
+                        //get pack form queue
+                        pck = (paquete *)queue->pop();
+                        sendCopyOf(pck);
+
+                    }
+                }else{
+                    estadoGBN=GBN_WAITING_ACK;
+                }
+             //we got an ACK
+            }else if(pck->getType()==1){
+                EV << getName()<< " GBN_SENDING: "<< "ACK RECEIVED" << "\n";
+                GbnWindowQueue->pop();
+                scheduleAt(simTime(),new cMessage("GBN_SENDING")); //timer para repeticion
+            //ack event, ready for sending
+            }else if(strcmp(msg->getFullName(), "GBN_SENDING")==0){
+                EV << getName()<< " GBN_SENDING: "<< "GBN SENDING" << "\n";
+                if(queue->getLength()==0){
+                    sendCopyOf(pck);
+                }else{
+                    //get pack form queue
+
+                    pck = (paquete *)queue->pop();
+                    sendCopyOf(pck);
+                }
+            }
+
+            break;
+        case GBN_WAITING_ACK:
+            EV << getName()<<" "<< " GBN_WAITING_ACK: "<< msg->getFullName() << "\n";
+            if(pck->getType()==1){ // only acks allowed
+                GbnWindowQueue->pop();
+                if(GbnWindowQueue->getLength()<N){
+                    scheduleAt(simTime(),new cMessage("GBN_SENDING")); //timer para repeticion
+                    //disparar un evento de que puede enviar
+                    estadoGBN=GBN_SENDING;
+                }
+            }
+            break;
+        default:
+            break;
+    }
+
+*/
+}
 
 void node_ext::s_w_sender(cMessage *msg){
 
-
+    paquete *pck;
     if(msg->arrivedOn("packet_in") || msg->arrivedOn("in")){
      pck = check_and_cast<paquete*>(msg);
     }
@@ -254,9 +445,40 @@ void node_ext::sendCopyOf(paquete *msg)
 {
 
 
+    if(GbnWindowQueue->getLength()>=N){
+        estadoGBN=GBN_WINDOWFULL;
+    }else if(channel->isBusy()){
+        //aqui podriamos encolar
+        queue->insert(msg);
+       // simtime_t txFinishTime = channel->getTransmissionFinishTime();
+       // pckTxTime=new cMessage("txLineFree");
+    }
+    else{
+
+    estadoGBN=GBN_READY;
+    GbnWindowQueue->insert(msg);
+    EV << getName()<< ": " << "SENDING: "<<msg->getFullName()<<"\n";
+    //Duplicar el mensaje y mandar una copia
+    //confirmationQueue->insert(msg);
+    paquete *copy = (paquete*) msg->dup();
+    send(copy, "out");
+    //simtime_t txFinishTime = channel->getTransmissionFinishTime();
+    //pckTxTime=new cMessage("pckTxTime");
+    //scheduleAt(txFinishTime,pckTxTime); //paquete ha llegado
+    //timerEvent = new cMessage("timer");
+    //scheduleAt(txFinishTime*1.3,timerEvent); //timer para repeticion
+
+    }
+
+}
+/*
+void node_ext::sendCopyOf(paquete *msg)
+{
+
+
     estado=SENDING;
     EV << getName()<< ": " << "sendCopy of "<<msg->getFullName()<<"\n";
-    /*Duplicar el mensaje y mandar una copia*/
+    //Duplicar el mensaje y mandar una copia
     confirmationQueue->insert(msg);
     paquete *copy = (paquete*) msg->dup();
     send(copy, "out");
@@ -266,16 +488,18 @@ void node_ext::sendCopyOf(paquete *msg)
     timerEvent = new cMessage("timer");
     scheduleAt(txFinishTime*1.3,timerEvent); //timer para repeticion
 
-
-
-
 }
-
+*/
 
 void node_ext::refreshDisplay() const
     {
         char buf[40];
-        sprintf(buf, "state: %d\nCola: %d\nconf: %d", estado,queue->getLength(),confirmationQueue->getLength());
+        //stop wait
+        //sprintf(buf, "state: %d\nCola: %d\nconf: %d", estado,queue->getLength(),confirmationQueue->getLength());
+        //getDisplayString().setTagArg("t", 0, buf);
+
+        //GBN
+        sprintf(buf, "state: %d\nCola: %d\nVentana: %d", estadoGBN,queue->getLength(),N-GbnWindowQueue->getLength());
         getDisplayString().setTagArg("t", 0, buf);
     }
 
