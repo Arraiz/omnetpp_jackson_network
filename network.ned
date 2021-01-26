@@ -47,7 +47,7 @@ network Two_Nodes
     types:
         channel eth10 extends DatarateChannel
         {
-            datarate = 5bps;
+            datarate = 300bps;
         }
         channel eth100 extends DatarateChannel
         {

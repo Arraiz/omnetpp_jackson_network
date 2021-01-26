@@ -37,7 +37,7 @@ void source::initialize()
         //Inicualizamos la fuente, contruimos el primer paquete y scheduleamos su envio
         EV << getName()<<":"<<" Started\n";
         newPacket = buildPacket();
-        scheduleAt(simTime()+exponential(1.0),newPacket);
+        scheduleAt(simTime()+exponential(100.0),newPacket);
     }
 
 }

@@ -18,6 +18,7 @@ class node : public cSimpleModule
     virtual void sendCopyOf(paquete *packet);
     virtual void sendAck(int seqNum);
     virtual void s_w_receriver(cMessage *msg);
+    virtual void gbn_receiver(cMessage *msg);
 
   private:
     cMessage *msgEvent;
@@ -49,7 +50,34 @@ void node::initialize()
 void node::handleMessage(cMessage *msg)
 {
 
-    s_w_receriver(msg);
+    gbn_receiver(msg);
+
+}
+
+void node::gbn_receiver(cMessage *msg){
+    if(msg->arrivedOn("in")){// mirar si el trafico es n
+                EV << getName()<< ": " << "message arrived to in\n";
+               paquete *packet = check_and_cast<paquete*>(msg);
+                sscanf(packet->getName(), "packet-%d",&packet_number);
+                EV << getName() << ":" << "packet number:"<< packet_number <<"\n";
+                ackMessage = new cMessage("ackMsg");
+                ackMessage->addPar("seqNum").setLongValue(packet_number);
+
+                if(channel->isBusy()){// si el canal esta ocupado sceduleamos
+                   //drop
+                    //simtime_t txFinishTime = channel->getTransmissionFinishTime();
+                    //scheduleAt(txFinishTime+exponential(1),ackMessage);
+                }else{//sino mandamos directamente
+                    scheduleAt(simTime(),ackMessage);
+
+                }
+            }
+         else if(msg->isSelfMessage()){
+             EV << getName() << ":" << "Handling self-message:"<< msg->getFullName() <<"\n";
+             if(strcmp(msg->getFullName(), "ackMsg")==0){
+                 sendAck(msg->par("seqNum").longValue());
+             }
+         }
 
 }
 
@@ -65,9 +93,9 @@ void node::s_w_receriver(cMessage *msg){
 
              if(channel->isBusy()){// si el canal esta ocupado sceduleamos
                  simtime_t txFinishTime = channel->getTransmissionFinishTime();
-                 scheduleAt(txFinishTime,ackMessage);
+                 scheduleAt(txFinishTime+exponential(1),ackMessage);
              }else{//sino mandamos directamente
-                 scheduleAt(simTime(),ackMessage);
+                 scheduleAt(simTime()+exponential(1),ackMessage);
 
              }
          }

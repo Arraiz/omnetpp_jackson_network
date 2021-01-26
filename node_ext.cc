@@ -6,7 +6,7 @@
 using namespace omnetpp;
 
 
-
+//Entrega final 28 enero
 
 class node_ext : public cSimpleModule
 {
@@ -21,7 +21,7 @@ class node_ext : public cSimpleModule
     virtual void s_w_sender(cMessage *msg);
 
     virtual void gbn_sender(cMessage *msg);
-    virtual void gbn_windowSlide();
+    virtual void gbn_windowSlide(int seqNum);
 
 
 
@@ -40,6 +40,7 @@ class node_ext : public cSimpleModule
     cMessage *txLineFree;//stop and wait
 
     cQueue *GbnWindowQueue;
+    cQueue *GbnConfirmationQueue;
     cChannel *channel;
     unsigned short estado=0; //
     bool lastAckConfirmed=false;
@@ -49,7 +50,7 @@ class node_ext : public cSimpleModule
            SENDING = 1,
            WAITING_ACK = 2,
        };
-    unsigned int N=10;
+    unsigned int N=3;
     unsigned int estadoGBN=0;
     enum estados_GBN{
         GBN_READY=0,
@@ -83,6 +84,7 @@ void node_ext::initialize()
     queue = new cQueue("node_ext_queue");
     confirmationQueue = new cQueue("node_ext_queue_ack_queue");
     GbnWindowQueue = new cQueue("GBN-Window-queue");
+    GbnConfirmationQueue = new cQueue("GBN-confirmation-queue");
     WATCH(estado);
     WATCH(estadoGBN);
 
@@ -94,9 +96,6 @@ void node_ext::initialize()
 
 
 void node_ext::handleMessage(cMessage *msg){
-
-
-
 
 
     if(msg->arrivedOn("packet_in") || msg->arrivedOn("in")){
@@ -111,10 +110,11 @@ void node_ext::handleMessage(cMessage *msg){
             if (strcmp(msg->getFullName(), "txLineFree")==0){ //gestionamos la cola
                 EV << getName()<<" "<< ": " << "LINE FREE: "<<pck->getFullName()<<"\n";
                 if(queue->getLength() != 0){
-                pck = (paquete *)queue->pop();
-                sendCopyOf(pck);
+                    EV << getName()<<" "<< ": " << "Sending from queue: "<<pck->getFullName()<<"\n";
+                    pck = (paquete *)queue->get(0);
+                    sendCopyOf(pck);
                 }
-               //comprovar ventana
+               //comprobar ventana
                if(GbnWindowQueue->getLength()>=N){
                    estadoGBN=GBN_WINDOWFULL;
                }
@@ -126,7 +126,10 @@ void node_ext::handleMessage(cMessage *msg){
                 if(queue->getLength()==0){
                     sendCopyOf(pck);
                 }else{
-                    pck = (paquete *)queue->pop();
+                    EV << getName()<<" "<< ": " << "Sending from queue: "<<pck->getFullName()<<"\n";
+                    pck = (paquete *)queue->get(0);
+                    //pck = (paquete *)queue->pop(); //CUANDO HACES POP EL PAQUETE YA NO ESTA EN LA COLA POR ESO NO FUNCIONA EL CONTAIND
+                    //(paquete *)queue->pop();
                     sendCopyOf(pck);
                 }
                 //comprovar ventana
@@ -137,7 +140,10 @@ void node_ext::handleMessage(cMessage *msg){
             }else if (pck->getType() == 1) { //ack
 
                 //si viene ack gestionamos la ventana
-                gbn_windowSlide();
+
+                int seqNum = pck->getSeq();
+
+                gbn_windowSlide(seqNum);
 
 
             }else if (pck->getType() == 2){ //nack
@@ -154,22 +160,27 @@ void node_ext::handleMessage(cMessage *msg){
             if (strcmp(msg->getFullName(), "txLineFree")==0){ //gestionamos la cola
                 EV << getName()<<" "<< ": " << "LINE FREE, WINDOW FULL: "<<pck->getFullName()<<"\n";
 
-
             }else  if(pck->getType()== 0){ // paquete de datos
-                EV << getName()<<" "<< ": " << "WINDOW_FULL: QUEUING -->"<<pck->getFullName()<<"\n";
-                queue->insert(pck);
+                EV << getName()<<" "<< ": " << "WINDOW_FULL: QUEUING -->" <<pck->getFullName()<<"\n";
+                if(queue->contains(pck)){
+                    EV << getName()<< ": " << "Pck already in queue: "<<msg->getFullName()<<"\n";
+                    //queue->insert(pck);
+                  }else{
+                      EV << getName()<< ": " << "Inserting new packet in queue: "<<msg->getFullName()<<"\n";
+                      queue->insert(pck);
+                  }
 
 
            }else if (pck->getType() == 1) { //ack
                   //desplazar ventana y mirar si podemos enviar
-                   GbnWindowQueue->pop();
+               int seqNum = pck->getSeq();
+               gbn_windowSlide(seqNum);
+
                    if(GbnWindowQueue->getLength()<N){
                        //podemos enviar
                        estadoGBN=GBN_READY;
                        //lanzar mensaje para poder enviar desde la cola
                    }
-
-
            }else if (pck->getType() == 2){ //nack
 
 
@@ -286,8 +297,27 @@ void node_ext::handleMessage(cMessage *msg)
 */
 
 
-void node_ext::gbn_windowSlide(){
-    GbnWindowQueue->pop();
+void node_ext::gbn_windowSlide(int seqNum){
+
+    //miramos si el numero de secuencia es menor o igual a los paquetes que tenemos en la ventan
+    EV << getName()<<" "<< ": " << "sliding window for: "<< seqNum <<"\n";
+    paquete *pck_iter;
+    int popCOunt=0;
+    for (int i=0;i<GbnWindowQueue->getLength();i++){
+       pck_iter= (paquete *)GbnWindowQueue->get(i);
+       EV << getName()<<" "<< ": " << "checking: " << pck_iter->getFullName() <<"\n";
+       if(pck_iter->getSeq() <= seqNum){
+           popCOunt++;
+           EV << getName()<<" "<< ": " << "removed from queue: " << pck_iter->getFullName() <<"\n";
+
+
+       }
+    }
+    EV << getName()<<" "<< ": " << "pop count: " << popCOunt <<"\n";
+    for(int i=1;i<=popCOunt;i++){
+        GbnWindowQueue->pop();
+    }
+    //GbnWindowQueue->pop();
 }
 
 void node_ext::gbn_sender(cMessage *msg){
@@ -443,19 +473,31 @@ void node_ext::s_w_sender(cMessage *msg){
 
 void node_ext::sendCopyOf(paquete *msg)
 {
-
+    EV << getName()<< ": " << "Entering send copy of with: "<<msg->getFullName()<<"\n";
 
     if(GbnWindowQueue->getLength()>=N){
         estadoGBN=GBN_WINDOWFULL;
     }else if(channel->isBusy()){
         //aqui podriamos encolar
-        queue->insert(msg);
+        if(queue->contains(msg)){
+            EV << getName()<< ": " << "Pck already in queue: "<<msg->getFullName()<<"\n";
+            //queue->insert(msg);
+           }else{
+               //new packet, queue
+               queue->insert(msg);
+           }
        // simtime_t txFinishTime = channel->getTransmissionFinishTime();
        // pckTxTime=new cMessage("txLineFree");
     }
     else{
 
     estadoGBN=GBN_READY;
+
+    if(queue->contains(msg)){
+        queue->remove(msg);
+    }
+
+
     GbnWindowQueue->insert(msg);
     EV << getName()<< ": " << "SENDING: "<<msg->getFullName()<<"\n";
     //Duplicar el mensaje y mandar una copia
