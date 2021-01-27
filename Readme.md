@@ -28,19 +28,32 @@ Cuando el nodo A envia un paquete al nodo B pueden ocurrir 3 cosas, que se envie
 
 ###### Diagrama de estados básico
 
-![estados](files/sw_states.png)
+<p align="center">
+  <img src="files/sw_states.png" width = "60%"/> 
+<p/>
 
 ###### Gestion de eventos
 
-![Retransmision_nack](files/sw_eventos.png)
+<p align="center">
+  <img src="files/sw_eventos.png" width = "60%"/> 
+<p/>
 
 ###### Ejemplos
 
 - Envio sin error
-  ![sw_no_error](files/sw_envio_sin_error.gif)
+
+<p align="center">
+  <img src="files/sw_envio_sin_error.gif" width = "80%"/> 
+<p/>
 
 - Recuperacion por NACK
-  ![sw_Retransmision_nack](files/sw_recuperacion_nack.gif)
+
+<p align="center">
+  <img src="files/sw_recuperacion_nack.gif" width = "80%"/> 
+<p/>
 
 - Recuperacion por Timer
-  ![sw_Retransmision_timmer](files/sw_recuperacion_timer.gif)
+
+<p align="center">
+  <img src="files/sw_recuperacion_timer.gif" width = "80%"/> 
+<p/>
