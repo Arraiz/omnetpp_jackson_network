@@ -75,7 +75,7 @@ El modelo tiene 3 tipos de nodos
 
 Existen 2 funiones basicas para que S&W, se ha intentado hacer modular con lo que un solo modulo puede implementar todas las funciones
 
-1. s_w_sender();
+1. s_w_sender
    `s_w_sender(msg, "packet_in", "in2", "out2", channel_out2);`
 
 es la encargada de enviar paquetes de TRAFICO a otro nodo.
@@ -83,6 +83,24 @@ Parametros:
 
 - msg: el mensaje a rutar
 - entradas (ins): entradas de trafico al nodo
-- Saliddas(outs): por donde el paquete sera enviado
+- Saliddas (outs): por donde el paquete sera enviado
+
+##### logica de rutado
+
+La logica de rutado es simple en funcion de la probabilidad se rutara hacia un destino o hacia otro
+
+```c++
+  if((rand()%100)<prob){
+      s_w_sender(msg_cp, "in2", "out2", channel_out2);
+    }else{
+        s_w_sender(msg_cp, "in3", "out3", channel_out3);
+    }
+```
+
+1. s_w_receiver
+   ```c++
+     virtual int s_w_receiver(cMessage *msg,const char* input,const char *output);
+   ```
+   Es la encargada de generar acks cuando se recibe un paquete.
 
 #### Go-BackN
