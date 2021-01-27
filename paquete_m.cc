@@ -183,6 +183,8 @@ paquete::paquete(const char *name, short kind) : ::omnetpp::cPacket(name,kind)
 {
     this->seq = 0;
     this->type = 0;
+    this->input = 0;
+    this->output = 0;
 }
 
 paquete::paquete(const paquete& other) : ::omnetpp::cPacket(other)
@@ -206,6 +208,8 @@ void paquete::copy(const paquete& other)
 {
     this->seq = other.seq;
     this->type = other.type;
+    this->input = other.input;
+    this->output = other.output;
 }
 
 void paquete::parsimPack(omnetpp::cCommBuffer *b) const
@@ -213,6 +217,8 @@ void paquete::parsimPack(omnetpp::cCommBuffer *b) const
     ::omnetpp::cPacket::parsimPack(b);
     doParsimPacking(b,this->seq);
     doParsimPacking(b,this->type);
+    doParsimPacking(b,this->input);
+    doParsimPacking(b,this->output);
 }
 
 void paquete::parsimUnpack(omnetpp::cCommBuffer *b)
@@ -220,6 +226,8 @@ void paquete::parsimUnpack(omnetpp::cCommBuffer *b)
     ::omnetpp::cPacket::parsimUnpack(b);
     doParsimUnpacking(b,this->seq);
     doParsimUnpacking(b,this->type);
+    doParsimUnpacking(b,this->input);
+    doParsimUnpacking(b,this->output);
 }
 
 unsigned int paquete::getSeq() const
@@ -240,6 +248,26 @@ unsigned short paquete::getType() const
 void paquete::setType(unsigned short type)
 {
     this->type = type;
+}
+
+unsigned int paquete::getInput() const
+{
+    return this->input;
+}
+
+void paquete::setInput(unsigned int input)
+{
+    this->input = input;
+}
+
+unsigned int paquete::getOutput() const
+{
+    return this->output;
+}
+
+void paquete::setOutput(unsigned int output)
+{
+    this->output = output;
 }
 
 class paqueteDescriptor : public omnetpp::cClassDescriptor
@@ -307,7 +335,7 @@ const char *paqueteDescriptor::getProperty(const char *propertyname) const
 int paqueteDescriptor::getFieldCount() const
 {
     omnetpp::cClassDescriptor *basedesc = getBaseClassDescriptor();
-    return basedesc ? 2+basedesc->getFieldCount() : 2;
+    return basedesc ? 4+basedesc->getFieldCount() : 4;
 }
 
 unsigned int paqueteDescriptor::getFieldTypeFlags(int field) const
@@ -321,8 +349,10 @@ unsigned int paqueteDescriptor::getFieldTypeFlags(int field) const
     static unsigned int fieldTypeFlags[] = {
         FD_ISEDITABLE,
         FD_ISEDITABLE,
+        FD_ISEDITABLE,
+        FD_ISEDITABLE,
     };
-    return (field>=0 && field<2) ? fieldTypeFlags[field] : 0;
+    return (field>=0 && field<4) ? fieldTypeFlags[field] : 0;
 }
 
 const char *paqueteDescriptor::getFieldName(int field) const
@@ -336,8 +366,10 @@ const char *paqueteDescriptor::getFieldName(int field) const
     static const char *fieldNames[] = {
         "seq",
         "type",
+        "input",
+        "output",
     };
-    return (field>=0 && field<2) ? fieldNames[field] : nullptr;
+    return (field>=0 && field<4) ? fieldNames[field] : nullptr;
 }
 
 int paqueteDescriptor::findField(const char *fieldName) const
@@ -346,6 +378,8 @@ int paqueteDescriptor::findField(const char *fieldName) const
     int base = basedesc ? basedesc->getFieldCount() : 0;
     if (fieldName[0]=='s' && strcmp(fieldName, "seq")==0) return base+0;
     if (fieldName[0]=='t' && strcmp(fieldName, "type")==0) return base+1;
+    if (fieldName[0]=='i' && strcmp(fieldName, "input")==0) return base+2;
+    if (fieldName[0]=='o' && strcmp(fieldName, "output")==0) return base+3;
     return basedesc ? basedesc->findField(fieldName) : -1;
 }
 
@@ -360,8 +394,10 @@ const char *paqueteDescriptor::getFieldTypeString(int field) const
     static const char *fieldTypeStrings[] = {
         "unsigned int",
         "unsigned short",
+        "unsigned int",
+        "unsigned int",
     };
-    return (field>=0 && field<2) ? fieldTypeStrings[field] : nullptr;
+    return (field>=0 && field<4) ? fieldTypeStrings[field] : nullptr;
 }
 
 const char **paqueteDescriptor::getFieldPropertyNames(int field) const
@@ -430,6 +466,8 @@ std::string paqueteDescriptor::getFieldValueAsString(void *object, int field, in
     switch (field) {
         case 0: return ulong2string(pp->getSeq());
         case 1: return ulong2string(pp->getType());
+        case 2: return ulong2string(pp->getInput());
+        case 3: return ulong2string(pp->getOutput());
         default: return "";
     }
 }
@@ -446,6 +484,8 @@ bool paqueteDescriptor::setFieldValueAsString(void *object, int field, int i, co
     switch (field) {
         case 0: pp->setSeq(string2ulong(value)); return true;
         case 1: pp->setType(string2ulong(value)); return true;
+        case 2: pp->setInput(string2ulong(value)); return true;
+        case 3: pp->setOutput(string2ulong(value)); return true;
         default: return false;
     }
 }

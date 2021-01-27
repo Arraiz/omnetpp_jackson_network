@@ -23,9 +23,13 @@
  * <pre>
  * packet paquete
  * {
- *     //0 normal, 1 ack, 2 nack
+ *     //0 normal 1 ack 2 nack
  *     unsigned int seq;
  *     unsigned short type;
+ * 
+ *     unsigned int input;
+ *     unsigned int output;
+ * 
  * }
  * </pre>
  */
@@ -34,6 +38,8 @@ class paquete : public ::omnetpp::cPacket
   protected:
     unsigned int seq;
     unsigned short type;
+    unsigned int input;
+    unsigned int output;
 
   private:
     void copy(const paquete& other);
@@ -56,6 +62,10 @@ class paquete : public ::omnetpp::cPacket
     virtual void setSeq(unsigned int seq);
     virtual unsigned short getType() const;
     virtual void setType(unsigned short type);
+    virtual unsigned int getInput() const;
+    virtual void setInput(unsigned int input);
+    virtual unsigned int getOutput() const;
+    virtual void setOutput(unsigned int output);
 };
 
 inline void doParsimPacking(omnetpp::cCommBuffer *b, const paquete& obj) {obj.parsimPack(b);}

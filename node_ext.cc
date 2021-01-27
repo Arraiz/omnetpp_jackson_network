@@ -17,11 +17,12 @@ class node_ext : public cSimpleModule
     virtual void initialize() override;
     virtual void handleMessage(cMessage *msg) override;
     virtual void refreshDisplay() const override;
-    virtual void sendCopyOf(paquete *packet);
-    virtual void s_w_sender(cMessage *msg);
+    virtual void sendCopyOf(paquete *packet, const char* output, cChannel* outChannel);
+    virtual void s_w_sender(cMessage *msg,const char* source,const char *input,const char *output, cChannel *outChannel);
 
     virtual void gbn_sender(cMessage *msg);
     virtual void gbn_windowSlide(int seqNum);
+    virtual void gbn_handleNack(int seqNum);
 
 
 
@@ -42,6 +43,9 @@ class node_ext : public cSimpleModule
     cQueue *GbnWindowQueue;
     cQueue *GbnConfirmationQueue;
     cChannel *channel;
+    cChannel *channel_in1;
+    cChannel *channel_out2;
+    cChannel *channel_in2;
     unsigned short estado=0; //
     bool lastAckConfirmed=false;
     double TIMER=1000;
@@ -81,6 +85,10 @@ void node_ext::initialize()
 {
 
     channel = gate("out")->getTransmissionChannel();
+    //channel_in1 = gate("in")->getTransmissionChannel();
+    //channel_in2 = gate("in2")->getTransmissionChannel();
+    channel_out2 = gate("out2")->getTransmissionChannel();
+
     queue = new cQueue("node_ext_queue");
     confirmationQueue = new cQueue("node_ext_queue_ack_queue");
     GbnWindowQueue = new cQueue("GBN-Window-queue");
@@ -98,6 +106,68 @@ void node_ext::initialize()
 void node_ext::handleMessage(cMessage *msg){
 
 
+    if((rand()%100)<0){
+        s_w_sender(msg,"packet_in","in","out", channel);
+    }else{
+        s_w_sender(msg,"packet_in","in2","out2", channel_out2);
+    }
+
+
+}
+
+
+
+
+void node_ext::gbn_handleNack(int seqNum){
+    // para mover paquetes desde la cola de que se esperan por confirmar
+    // a la cola de retransmision
+    EV << getName()<<" "<< ": " << "Handling nak \n";
+    paquete *pck_iter;
+    int popCOunt=0;
+    for (int i=GbnWindowQueue->getLength()-1;i>=0;i--){
+       pck_iter= (paquete *)GbnWindowQueue->get(i);
+       EV << getName()<<" "<< ": " << "checking: " << pck_iter->getFullName() <<"\n";
+       if(pck_iter->getSeq() >= seqNum){
+           popCOunt++;
+           EV << getName()<<" "<< ": " << "removed from queue: " << pck_iter->getFullName() <<"\n";
+       }
+    }
+    EV << getName()<<" "<< ": " << "pop count: " << popCOunt <<"\n";
+
+
+        for(int i=0;i<popCOunt;i++){
+
+            queue->insert((paquete *)GbnWindowQueue->pop());
+        }
+
+}
+
+void node_ext::gbn_windowSlide(int seqNum){
+
+    //miramos si el numero de secuencia es menor o igual a los paquetes que tenemos en la ventan
+    EV << getName()<<" "<< ": " << "sliding window for: "<< seqNum <<"\n";
+    paquete *pck_iter;
+    int popCOunt=0;
+    for (int i=0;i<GbnWindowQueue->getLength();i++){
+       pck_iter= (paquete *)GbnWindowQueue->get(i);
+       EV << getName()<<" "<< ": " << "checking: " << pck_iter->getFullName() <<"\n";
+       if(pck_iter->getSeq() <= seqNum){
+           popCOunt++;
+           EV << getName()<<" "<< ": " << "removed from queue: " << pck_iter->getFullName() <<"\n";
+
+
+       }
+    }
+    EV << getName()<<" "<< ": " << "pop count: " << popCOunt <<"\n";
+    for(int i=1;i<=popCOunt;i++){
+        GbnWindowQueue->pop();
+    }
+    //GbnWindowQueue->pop();
+}
+
+void node_ext::gbn_sender(cMessage *msg){
+
+
     if(msg->arrivedOn("packet_in") || msg->arrivedOn("in")){
        pck = check_and_cast<paquete*>(msg);
     }
@@ -112,7 +182,7 @@ void node_ext::handleMessage(cMessage *msg){
                 if(queue->getLength() != 0){
                     EV << getName()<<" "<< ": " << "Sending from queue: "<<pck->getFullName()<<"\n";
                     pck = (paquete *)queue->get(0);
-                    sendCopyOf(pck);
+                    //sendCopyOf(pck,"out1");
                 }
                //comprobar ventana
                if(GbnWindowQueue->getLength()>=N){
@@ -124,13 +194,13 @@ void node_ext::handleMessage(cMessage *msg){
 
                 //enviamos si se puede
                 if(queue->getLength()==0){
-                    sendCopyOf(pck);
+                    //sendCopyOf(pck,"out1");
                 }else{
                     EV << getName()<<" "<< ": " << "Sending from queue: "<<pck->getFullName()<<"\n";
                     pck = (paquete *)queue->get(0);
                     //pck = (paquete *)queue->pop(); //CUANDO HACES POP EL PAQUETE YA NO ESTA EN LA COLA POR ESO NO FUNCIONA EL CONTAIND
                     //(paquete *)queue->pop();
-                    sendCopyOf(pck);
+                    //sendCopyOf(pck,"out1");
                 }
                 //comprovar ventana
                 if(GbnWindowQueue->getLength()>=N){
@@ -147,7 +217,11 @@ void node_ext::handleMessage(cMessage *msg){
 
 
             }else if (pck->getType() == 2){ //nack
-
+                EV << getName()<< ": " << "Hadling nack: "<<msg->getFullName()<<"\n";
+                  //get secnum
+                  int seqNum = pck->getSeq();
+                  //meter a la cola los paquetes desde
+                  gbn_handleNack(seqNum);
 
 
             }
@@ -182,7 +256,11 @@ void node_ext::handleMessage(cMessage *msg){
                        //lanzar mensaje para poder enviar desde la cola
                    }
            }else if (pck->getType() == 2){ //nack
-
+               EV << getName()<< ": " << "Hadling nack: "<<msg->getFullName()<<"\n";
+               //get secnum
+               int seqNum = pck->getSeq();
+               //meter a la cola los paquetes desde
+               gbn_handleNack(seqNum);
 
            }
 
@@ -206,189 +284,12 @@ void node_ext::handleMessage(cMessage *msg){
         scheduleAt(simTime()+exponential(1.0),txLineFree);
     }
 
-
-
-
-
-    //s_w_sender(msg);
-
-
-}
-/*
-void node_ext::handleMessage(cMessage *msg)
-{
-    paquete *pck = check_and_cast<paquete*>(msg);
-    if(msg->isSelfMessage()){
-
-        EV << getName()<< ": " << "selfmsg type: "<<  msg->getFullName() <<"\n";
-        if(estado==SENDING){
-            estado=WAITING_ACK;
-        }
-        else if(estado==WAITING_ACK){
-
-            if(!channel->isBusy()){
-                sendFromQueue();
-            }
-
-
-        }
-
-    }
-
-   if(msg->arrivedOn("packet_in")||msg->getFullName()=="queueMsg"){ //mirar si el trafico es para inyectar en la red
-       paquete *pck = check_and_cast<paquete*>(msg);
-       EV << getName()<< "state machine: packet type: " << msg->getFullName() <<"\n";
-       switch(estado) {
-         case READY_TO_SEND:
-         {
-           EV << getName()<< ": " << "message arrived to packet_in, state: ready to send Sending\n";
-           sendCopyOf(pck);
-           break;
-         }
-         case SENDING:{
-           //encola y schedulea
-           EV << getName()<< ": " << "message arrived to packet_in, state: sending, Queuing\n";
-           queue->insert(pck);
-           simtime_t txFinishTime = channel->getTransmissionFinishTime();
-           scheduleAt(txFinishTime,new cMessage("Queueing"));
-           EV << getName()<< ": " << "queue size: " << queue->getLength()  <<"\n";
-           // code block
-           break;
-         }
-         case WAITING_ACK:{
-            //encola
-           EV << getName()<< ": " << "message arrived to packet_in sate: waiting ACK , Queuing\n";
-             //encola y schedulea
-           queue->insert(pck);
-           simtime_t txFinishTime = channel->getTransmissionFinishTime();
-           if(txFinishTime <= getSimulation()->getSimTime()){
-               scheduleAt(getSimulation()->getSimTime(),new cMessage("queueMsg"));
-           }else{
-               scheduleAt(txFinishTime,new cMessage("queueMsg"));
-           }
-            break;
-         }
-
-       }
-
-   }else if(msg->arrivedOn("in")){//es un ack
-
-       paquete *pck = check_and_cast<paquete*>(msg);
-       EV << getName()<< ": " << "ACK rec: msg type"<<pck->getType()<< "\n";
-       if(pck->getType()==1){
-           //ack
-           EV << getName()<< ": " << "ack received, poping from ackQueue\n";
-           confirmationQueue->pop();
-           estado=READY_TO_SEND;
-
-
-       }else if(pck->getType()==2){
-           //nack
-           EV << getName()<< ": " << "nack received,resending\n";
-           paquete *nackPack = (paquete*)confirmationQueue->pop();
-           sendCopyOf(nackPack);
-
-       }
-
-   }
-
 }
 
-*/
-
-
-void node_ext::gbn_windowSlide(int seqNum){
-
-    //miramos si el numero de secuencia es menor o igual a los paquetes que tenemos en la ventan
-    EV << getName()<<" "<< ": " << "sliding window for: "<< seqNum <<"\n";
-    paquete *pck_iter;
-    int popCOunt=0;
-    for (int i=0;i<GbnWindowQueue->getLength();i++){
-       pck_iter= (paquete *)GbnWindowQueue->get(i);
-       EV << getName()<<" "<< ": " << "checking: " << pck_iter->getFullName() <<"\n";
-       if(pck_iter->getSeq() <= seqNum){
-           popCOunt++;
-           EV << getName()<<" "<< ": " << "removed from queue: " << pck_iter->getFullName() <<"\n";
-
-
-       }
-    }
-    EV << getName()<<" "<< ": " << "pop count: " << popCOunt <<"\n";
-    for(int i=1;i<=popCOunt;i++){
-        GbnWindowQueue->pop();
-    }
-    //GbnWindowQueue->pop();
-}
-
-void node_ext::gbn_sender(cMessage *msg){
-    /*
-    paquete *pck;
-    EV << getName()<< " Incoming event: "<< msg->getFullName() << "\n";
-    if(msg->arrivedOn("packet_in") || msg->arrivedOn("in")){
-        pck = check_and_cast<paquete*>(msg);
-    }else{
-        delete pck;
-    }
-    EV << getName()<< "event in to FSM: "<< msg->getFullName() << "\n";
-    switch (estadoGBN) {
-
-        case GBN_SENDING:
-            if(pck->getType()==0){
-                EV << getName()<< " GBN_SENDING: "<< msg->getFullName() << "\n";
-                if(GbnWindowQueue->getLength()<N){
-
-                    if(queue->getLength()==0){
-                        sendCopyOf(pck);
-                    }else{
-                        //get pack form queue
-                        pck = (paquete *)queue->pop();
-                        sendCopyOf(pck);
-
-                    }
-                }else{
-                    estadoGBN=GBN_WAITING_ACK;
-                }
-             //we got an ACK
-            }else if(pck->getType()==1){
-                EV << getName()<< " GBN_SENDING: "<< "ACK RECEIVED" << "\n";
-                GbnWindowQueue->pop();
-                scheduleAt(simTime(),new cMessage("GBN_SENDING")); //timer para repeticion
-            //ack event, ready for sending
-            }else if(strcmp(msg->getFullName(), "GBN_SENDING")==0){
-                EV << getName()<< " GBN_SENDING: "<< "GBN SENDING" << "\n";
-                if(queue->getLength()==0){
-                    sendCopyOf(pck);
-                }else{
-                    //get pack form queue
-
-                    pck = (paquete *)queue->pop();
-                    sendCopyOf(pck);
-                }
-            }
-
-            break;
-        case GBN_WAITING_ACK:
-            EV << getName()<<" "<< " GBN_WAITING_ACK: "<< msg->getFullName() << "\n";
-            if(pck->getType()==1){ // only acks allowed
-                GbnWindowQueue->pop();
-                if(GbnWindowQueue->getLength()<N){
-                    scheduleAt(simTime(),new cMessage("GBN_SENDING")); //timer para repeticion
-                    //disparar un evento de que puede enviar
-                    estadoGBN=GBN_SENDING;
-                }
-            }
-            break;
-        default:
-            break;
-    }
-
-*/
-}
-
-void node_ext::s_w_sender(cMessage *msg){
+void node_ext::s_w_sender(cMessage *msg,const char* source ,const char *input,const char *output, cChannel *outChannel){
 
     paquete *pck;
-    if(msg->arrivedOn("packet_in") || msg->arrivedOn("in")){
+    if(msg->arrivedOn(source) || msg->arrivedOn(input)){
      pck = check_and_cast<paquete*>(msg);
     }
 
@@ -404,7 +305,7 @@ void node_ext::s_w_sender(cMessage *msg){
             estado=SENDING;
             EV << getName()<< ": " << "timer triggered \n";
             pck = (paquete*)confirmationQueue->pop();
-            sendCopyOf(pck);
+            sendCopyOf(pck,output,outChannel);
         }
 
     }else if(pck->getType() == 0  || strcmp(msg->getFullName(), "readyToSend") == 0 ){ // es un packete normal
@@ -417,7 +318,7 @@ void node_ext::s_w_sender(cMessage *msg){
                if(queue->getLength() == 0 && pck != NULL  ){
                    if( pck->getType() == 0){
                        EV << getName()<< "forwarding regular packet\n";
-                       sendCopyOf(pck);
+                       sendCopyOf(pck,output,outChannel);
                    }
                }else{
 
@@ -426,10 +327,10 @@ void node_ext::s_w_sender(cMessage *msg){
                    EV << getName()<< "sending queue packet\n";
                    queue->insert(pck);
                    pck = (paquete *)queue->pop();
-                   sendCopyOf(pck);
+                   sendCopyOf(pck,output,outChannel);
                    }else{
                        pck = (paquete *)queue->pop();
-                       sendCopyOf(pck);
+                       sendCopyOf(pck,output,outChannel);
                    }
                }
               break;
@@ -465,14 +366,16 @@ void node_ext::s_w_sender(cMessage *msg){
             estado=SENDING;
             pck = (paquete*)confirmationQueue->pop();
             //aqui no se pasa a ready to send, ya que es prioritario transmitir el paquete anterior
-            sendCopyOf(pck);
+            sendCopyOf(pck,output,outChannel);
         }
 
     }
 }
-
+/*
 void node_ext::sendCopyOf(paquete *msg)
 {
+    //process time
+
     EV << getName()<< ": " << "Entering send copy of with: "<<msg->getFullName()<<"\n";
 
     if(GbnWindowQueue->getLength()>=N){
@@ -513,8 +416,9 @@ void node_ext::sendCopyOf(paquete *msg)
     }
 
 }
-/*
-void node_ext::sendCopyOf(paquete *msg)
+*/
+
+void node_ext::sendCopyOf(paquete *msg, const char* output, cChannel* outChannel)
 {
 
 
@@ -523,26 +427,26 @@ void node_ext::sendCopyOf(paquete *msg)
     //Duplicar el mensaje y mandar una copia
     confirmationQueue->insert(msg);
     paquete *copy = (paquete*) msg->dup();
-    send(copy, "out");
-    simtime_t txFinishTime = channel->getTransmissionFinishTime();
+    send(copy, output);
+    simtime_t txFinishTime = outChannel->getTransmissionFinishTime();
     pckTxTime=new cMessage("pckTxTime");
     scheduleAt(txFinishTime,pckTxTime); //paquete ha llegado
     timerEvent = new cMessage("timer");
-    scheduleAt(txFinishTime*1.3,timerEvent); //timer para repeticion
+    //scheduleAt(txFinishTime*10,timerEvent); //timer para repeticion
 
 }
-*/
+
 
 void node_ext::refreshDisplay() const
     {
         char buf[40];
         //stop wait
-        //sprintf(buf, "state: %d\nCola: %d\nconf: %d", estado,queue->getLength(),confirmationQueue->getLength());
-        //getDisplayString().setTagArg("t", 0, buf);
+        sprintf(buf, "state: %d\nCola: %d\nconf: %d", estado,queue->getLength(),confirmationQueue->getLength());
+        getDisplayString().setTagArg("t", 0, buf);
 
         //GBN
-        sprintf(buf, "state: %d\nCola: %d\nVentana: %d", estadoGBN,queue->getLength(),N-GbnWindowQueue->getLength());
-        getDisplayString().setTagArg("t", 0, buf);
+        //sprintf(buf, "state: %d\nCola: %d\nVentana: %d", estadoGBN,queue->getLength(),N-GbnWindowQueue->getLength());
+        //getDisplayString().setTagArg("t", 0, buf);
     }
 
 
