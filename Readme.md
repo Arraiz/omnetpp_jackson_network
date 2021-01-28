@@ -97,7 +97,7 @@ El modelo tiene 3 tipos de nodos
 
 4. Canales
 
-   Para los canales se uso la clase DataChannel que da omnetpp al que podemos darle parametros
+   Para los canales se uso la clase DatarateChannel que da omnetpp al que podemos darle parametros
 
    ```c++
    channel eth_100bps extends DatarateChannel
@@ -201,4 +201,44 @@ Condiciones de GoBack-N
 5. Es posible confirmar varios paquetes a la vez - [x]
 6. Cuando llega un nak se desacartan todos los paquetes anteriores - [x]
 
+#### Diagrama de estados
+
+##### Estados
+
+<p align="center">
+  <img src="files/gbn-estados.png" width = "20%"/> 
+<p/>
+
+##### Eventos
+
+<p align="center">
+  <img src="files/gbn-eventos.png" width = "70%"/> 
+<p/>
+
 ##### Funcionamiento
+
+Con GBN se puede enviar hasta que una ventana con un determinado tamaño se vacia, con lo que es necesario deslizar la ventana cuando se recibien ACKs que indican que un paquete se ha enviado bien.
+
+#### Ejemplos
+
+1. GBN basico
+
+Funcionamiento basico, el trasmisor envia hasta que la ventana se llena
+
+<p align="center">
+  <img src="files/gbn_basico.gif" width = "70%"/> 
+<p/>
+
+2. GBN multi-ack
+
+Cuando el receptor en envia un ack se vacian todos los paquetes anteriores
+
+<p align="center">
+  <img src="files/gbn_multiack.gif" width = "70%"/> 
+<p/>
+
+##### Problemas encontrados
+
+1. Maquina virtual de 2GB
+
+2. Programacion de protocolos: para poder probar de manera consistente el rendimiento de estos protocolos ARQ es necesario que el protocolo este bien implementado, eso lleva tiempo, considero que salvo la ausencia de recupperacion por timme en el caso de Go-Back-N la implementacion de cada protocolo esta bien lograda y testeada en diferentes escenario.
