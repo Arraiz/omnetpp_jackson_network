@@ -237,8 +237,13 @@ Cuando el receptor en envia un ack se vacian todos los paquetes anteriores
   <img src="files/gbn_multiack.gif" width = "70%"/> 
 <p/>
 
-##### Problemas encontrados
+## Problemas encontrados
 
 1. Maquina virtual de 2GB
 
-2. Programacion de protocolos: para poder probar de manera consistente el rendimiento de estos protocolos ARQ es necesario que el protocolo este bien implementado, eso lleva tiempo, considero que salvo la ausencia de recupperacion por timme en el caso de Go-Back-N la implementacion de cada protocolo esta bien lograda y testeada en diferentes escenario.
+2. Programacion de protocolos: para poder probar de manera consistente el rendimiento de estos protocolos ARQ es necesario que el protocolo este bien implementado, eso lleva tiempo, considero que salvo la ausencia de recupperacion por timme en el caso de Go-Back-N la implementacion de cada protocolo esta bien lograda y testeada en diferentes escenario. Despues el paso siguiente habria sido el de sacar estadisticas.
+
+## Conclusiones
+
+Programar este tipo de modelos es bastante cercano a acercarse a como se puede comportar una targeta de red o un driver de red.
+Por ejemplo a la hora de codificar un protocolo hay que abstraerse y pensar a como se cmportaria un driver de red, con lo que es necesario programar pensando en recursos y en memoria optimizando.
